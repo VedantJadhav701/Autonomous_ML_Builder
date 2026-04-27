@@ -58,12 +58,15 @@ def run_demo():
                 "age": 30, 
                 "income": 1000000, 
                 "home_ownership": "OWN", 
+                "emp_length": 10.0,
+                "loan_intent": "VENTURE",
+                "loan_grade": "A",
                 "loan_percent_income": 0.05, 
                 "cb_person_default_on_file": "N", 
                 "cb_person_cred_hist_length": 10,
                 "loan_amnt": 1000,
                 "loan_int_rate": 5.0
-            } for _ in range(10)
+            } for _ in range(12) # batch of 12
         ]
     }
     drift_resp = requests.post(f"{BASE_URL}/predict", json=drift_payload)
