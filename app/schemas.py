@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 class PredictionInput(BaseModel):
     """
@@ -10,9 +10,11 @@ class PredictionInput(BaseModel):
     
 class PredictionRequest(BaseModel):
     data: List[PredictionInput]
+    request_ids: Optional[List[str]] = None
 
 class PredictionResponse(BaseModel):
     predictions: List[Any]
+    request_ids: List[str]
     message: str = "Success"
 
 class ExplainResponse(BaseModel):
@@ -20,5 +22,5 @@ class ExplainResponse(BaseModel):
     message: str = "Success"
 
 class FeedbackRequest(BaseModel):
+    request_ids: List[str]
     truths: List[Any]
-    preds: List[Any]

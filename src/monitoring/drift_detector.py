@@ -3,8 +3,9 @@ import numpy as np
 import json
 import os
 from typing import Dict, Any
-from scipy.stats import ks_2samp
+from scipy.stats import ks_2samp, chisquare
 from src.monitoring.logger import get_logger
+from src.monitoring.alerting import AlertManager
 
 logger = get_logger(__name__)
 
@@ -27,10 +28,11 @@ class DriftDetector:
                     "samples": samples
                 }
             else:
-                top_categories = df[col].value_counts().head(5).index.tolist()
+                # Store relative frequencies for chi-square testing
+                val_counts = df[col].value_counts(normalize=True).to_dict()
                 baselines[col] = {
                     "type": "categorical",
-                    "top_categories": top_categories
+                    "frequencies": val_counts
                 }
                 
         os.makedirs("models", exist_ok=True)
@@ -62,4 +64,24 @@ class DriftDetector:
                     stat, p_value = ks_2samp(baseline_samples, incoming_samples)
                     # p-value < 0.05 implies distributions are significantly different
                     if p_value < 0.05:
-                        logger.warning(f"Drift Alert! Feature '{col}' failed KS-Test (p-value={p_value:.4f}). Distribution shift detected.")
+                        msg = f"Feature '{col}' failed KS-Test (p-value={p_value:.4f}). Distribution shift detected."
+                        AlertManager.send_alert("Numerical Drift Alert", msg)
+                        
+            elif base_stats["type"] == "categorical" and not pd.api.types.is_numeric_dtype(input_df[col]):
+                base_freqs = base_stats["frequencies"]
+                incoming_counts = input_df[col].value_counts().to_dict()
+                n = len(input_df[col].dropna())
+                
+                if n > 0:
+                    # Construct observed and expected counts
+                    obs = []
+                    exp = []
+                    # Evaluate based on known categories from baseline
+                    for cat, freq in base_freqs.items():
+                        obs.append(incoming_counts.get(cat, 0) + 1e-5) # small epsilon for completely unseen batch subset
+                        exp.append((freq * n) + 1e-5)
+                    
+                    stat, p_value = chisquare(f_obs=obs, f_exp=exp)
+                    if p_value < 0.05:
+                        msg = f"Categorical Feature '{col}' failed Chi-Square Test (p-value={p_value:.4f}). Frequency shift detected."
+                        AlertManager.send_alert("Categorical Drift Alert", msg)

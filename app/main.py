@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import pandas as pd
+import uuid
 from app.schemas import PredictionRequest, PredictionResponse, ExplainResponse, FeedbackRequest
 from src.tracker import ModelArtifactTracker
 from src.monitoring.logger import get_logger
@@ -30,13 +31,26 @@ async def predict(request: PredictionRequest):
         input_data = [item.model_dump() for item in request.data]
         df = pd.DataFrame(input_data)
         
+        # Generate or Validate Request IDs for async feedback loop
+        n_rows = len(df)
+        if request.request_ids:
+            if len(request.request_ids) != n_rows:
+                raise HTTPException(status_code=400, detail="request_ids length must match data length")
+            request_ids = request.request_ids
+        else:
+            request_ids = [str(uuid.uuid4()) for _ in range(n_rows)]
+
         # Intercept for Drift Detection
         DriftDetector.check_drift(df)
         
         # Sub-10ms Inference
         preds = PIPELINE.predict(df)
+        preds_list = preds.tolist() if hasattr(preds, 'tolist') else list(preds)
+
+        # Stage for future async performance evaluation
+        PerformanceTracker.stage_predictions(request_ids, preds_list)
         
-        return PredictionResponse(predictions=preds.tolist())
+        return PredictionResponse(predictions=preds_list, request_ids=request_ids)
     except Exception as e:
         logger.error(f"Inference error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -81,7 +95,7 @@ async def explain(request: PredictionRequest):
 async def feedback(request: FeedbackRequest):
     """Ingests continuous ground truths and forces performance recalculations."""
     try:
-        PerformanceTracker.log_feedback(request.truths, request.preds)
+        PerformanceTracker.log_feedback(request.request_ids, request.truths)
         return {"status": "Feedback securely logged and evaluated."}
     except Exception as e:
         logger.error(f"Feedback error: {str(e)}")

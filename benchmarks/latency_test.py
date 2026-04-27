@@ -1,17 +1,38 @@
 import time
 import numpy as np
 import threading
+import psutil
+import platform
 from fastapi.testclient import TestClient
 from app.main import app
 
 # Instantiate FastAPI testing client
 client = TestClient(app)
 
+def get_system_context():
+    """Captures hardware specs to ground benchmark results."""
+    context = {
+        "OS": f"{platform.system()} {platform.release()}",
+        "Processor": platform.processor(),
+        "Physical Cores": psutil.cpu_count(logical=False),
+        "Total Threads": psutil.cpu_count(logical=True),
+        "RAM": f"{round(psutil.virtual_memory().total / (1024**3), 2)} GB",
+        "Python Version": platform.python_version()
+    }
+    return context
+
 def run_benchmark(num_requests: int = 1000):
     """
     Blasts the FastAPI endpoint to empirically calculate 
-    p95, average, and maximum latencies to prove Sub-10ms constraints.
+    p95, average, and maximum latencies with hardware context.
     """
+    context = get_system_context()
+    print("-" * 30)
+    print("HARDWARE & SYSTEM CONTEXT")
+    for k, v in context.items():
+        print(f"{k}: {v}")
+    print("-" * 30)
+    
     print(f"Starting benchmark script against inference endpoint ({num_requests} requests)...")
     
     # We send dummy dictionaries conforming to schemas 
