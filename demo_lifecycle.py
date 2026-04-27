@@ -22,7 +22,19 @@ def run_demo():
     print("\n[2/5] Performing Live Prediction...")
     payload = {
         "data": [
-            {"age": 22, "income": 60000, "home_ownership": "RENT", "emp_length": 5.0, "loan_intent": "PERSONAL", "loan_grade": "A", "loan_amnt": 5000, "loan_int_rate": 8.5}
+            {
+                "age": 22, 
+                "income": 60000, 
+                "home_ownership": "RENT", 
+                "emp_length": 5.0, 
+                "loan_intent": "PERSONAL", 
+                "loan_grade": "A", 
+                "loan_amnt": 5000, 
+                "loan_int_rate": 8.5,
+                "loan_percent_income": 0.1,
+                "cb_person_default_on_file": "N",
+                "cb_person_cred_hist_length": 3
+            }
         ],
         "request_ids": ["demo-req-001"]
     }
@@ -41,7 +53,18 @@ def run_demo():
     print("\n[4/5] Injecting Statistical Drift (Simulating Out-Of-Distribution Data)...")
     # Sending a batch with very high income to trigger KS-Test drift
     drift_payload = {
-        "data": [{"age": 30, "income": 1000000, "home_ownership": "OWN"} for _ in range(10)]
+        "data": [
+            {
+                "age": 30, 
+                "income": 1000000, 
+                "home_ownership": "OWN", 
+                "loan_percent_income": 0.05, 
+                "cb_person_default_on_file": "N", 
+                "cb_person_cred_hist_length": 10,
+                "loan_amnt": 1000,
+                "loan_int_rate": 5.0
+            } for _ in range(10)
+        ]
     }
     drift_resp = requests.post(f"{BASE_URL}/predict", json=drift_payload)
     print("Drift payload sent. Check server logs for [Numerical Drift Alert]!")
