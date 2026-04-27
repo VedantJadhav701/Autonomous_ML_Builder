@@ -72,15 +72,15 @@ export default function AppDashboard() {
           <ModeBtn active={mode === "infer"} onClick={() => setMode("infer")} icon="⚡" label="Run Inference" />
         </div>
 
-        {mode === "train"  && <TrainMode alerts={alerts} />}
-        {mode === "infer"  && <InferMode alerts={alerts} onSwitchToTrain={() => setMode("train")} />}
+        {mode === "train" && <TrainMode alerts={alerts} onSwitchToInfer={() => setMode("infer")} />}
+        {mode === "infer" && <InferMode key="infer" alerts={alerts} onSwitchToTrain={() => setMode("train")} />}
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────── TRAIN MODE ───────────────
-function TrainMode({ alerts }: { alerts: any[] }) {
+function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer: () => void }) {
   // steps: upload → config → progress → results
   const [step, setStep] = useState<"upload" | "config" | "progress" | "results">("upload");
 
@@ -317,13 +317,16 @@ function TrainMode({ alerts }: { alerts: any[] }) {
       {/* ── STEP: Results ── */}
       {step === "results" && results && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Success banner */}
-          <div style={{ padding: "16px 24px", borderRadius: 14, backgroundColor: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)", display: "flex", alignItems: "center", gap: 12 }}>
-            <CheckCircle2 style={{ width: 20, height: 20, color: C.green }} />
-            <div>
-              <p style={{ margin: 0, fontWeight: 700, color: C.green }}>Training Complete</p>
-              <p style={{ margin: 0, fontSize: 12, color: C.muted }}>Model is live — switch to Inference Mode to run predictions.</p>
+          {/* Success banner + CTA */}
+          <div style={{ padding: "16px 24px", borderRadius: 14, backgroundColor: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <CheckCircle2 style={{ width: 20, height: 20, color: C.green }} />
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: C.green }}>Training Complete</p>
+                <p style={{ margin: 0, fontSize: 12, color: C.muted }}>Model is live and ready for inference.</p>
+              </div>
             </div>
+            <PrimaryBtn label="⚡ Switch to Inference →" onClick={onSwitchToInfer} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
@@ -386,22 +389,52 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
   const [loading, setLoading]         = useState(false);
   const [activeTab, setActiveTab]     = useState<"prediction" | "shap" | "feedback" | "alerts">("prediction");
 
-  // Load metadata + prefill form with sample values
-  useEffect(() => {
-    fetch(`${API_BASE}/metadata`)
-      .then(r => r.json())
-      .then((meta: Metadata) => {
-        setMetadata(meta);
-        if (meta.available && meta.features) {
+  const fetchMetadata = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/metadata`);
+      if (!res.ok) return;
+      const meta: Metadata = await res.json();
+      setMetadata(meta);
+      if (meta.available && meta.features) {
+        setFormData(prev => {
           const init: Record<string, any> = {};
-          Object.entries(meta.features).forEach(([col, spec]) => {
-            init[col] = spec.sample ?? (spec.type === "number" ? 0 : "");
+          Object.entries(meta.features!).forEach(([col, spec]) => {
+            // keep existing user values, only seed new keys
+            init[col] = prev[col] !== undefined ? prev[col] : (spec.sample ?? (spec.type === "number" ? 0 : ""));
           });
-          setFormData(init);
-        }
-      })
-      .catch(() => setMetadata({ available: false }));
+          return init;
+        });
+      }
+    } catch { setMetadata({ available: false }); }
   }, []);
+
+  // Fetch on mount AND set up a short re-poll until model is available
+  useEffect(() => {
+    fetchMetadata();
+    // If no metadata yet, retry every 2s for up to 20s
+    let retries = 0;
+    const iv = setInterval(() => {
+      retries++;
+      if (retries > 10) { clearInterval(iv); return; }
+      fetch(`${API_BASE}/metadata`)
+        .then(r => r.json())
+        .then((meta: Metadata) => {
+          if (meta.available) {
+            setMetadata(meta);
+            if (meta.features) {
+              const init: Record<string, any> = {};
+              Object.entries(meta.features).forEach(([col, spec]) => {
+                init[col] = spec.sample ?? (spec.type === "number" ? 0 : "");
+              });
+              setFormData(init);
+            }
+            clearInterval(iv);
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [fetchMetadata]);
 
   const handlePredict = async () => {
     setLoading(true); setPrediction(null); setShap(null);
@@ -442,12 +475,18 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
       {/* Model badge */}
       <div style={{ padding: "12px 18px", borderRadius: 12, backgroundColor: metadata?.available ? "rgba(52,211,153,0.05)" : "rgba(59,130,246,0.05)", border: `1px solid ${metadata?.available ? "rgba(52,211,153,0.15)" : "rgba(59,130,246,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
-          {metadata?.available
-            ? <>Active model: <strong style={{ color: "#fff" }}>{metadata.model_name}</strong> · {metadata.task_type} · target: <code style={{ color: C.blue }}>{metadata.target_col}</code></>
-            : "No model trained yet. Train a model first for best results."}
+          {metadata === null
+            ? "Loading model info…"
+            : metadata.available
+              ? <><strong style={{ color: "#fff" }}>{metadata.model_name}</strong> · <span style={{ color: C.green }}>{metadata.task_type}</span> · target: <code style={{ color: C.blue }}>{metadata.target_col}</code></>
+              : "No model loaded. Train a model first."}
         </p>
-        <GhostBtn label="Go to Train →" onClick={onSwitchToTrain} />
+        <div style={{ display: "flex", gap: 8 }}>
+          {!metadata?.available && <GhostBtn label="↺ Reload" onClick={fetchMetadata} />}
+          <GhostBtn label="Go to Train →" onClick={onSwitchToTrain} />
+        </div>
       </div>
+
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.border}`, paddingBottom: 0 }}>
