@@ -15,3 +15,21 @@ a {
 html {
   scroll-behavior: smooth;
 }
+
+/* Fix native select/option dropdown on all browsers */
+select {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+select option {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+select option:checked,
+select option:hover {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
