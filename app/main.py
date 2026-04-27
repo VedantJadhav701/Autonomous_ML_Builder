@@ -82,22 +82,36 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         n_samples, n_features = X.shape
         logger.info(f"Profiled: {n_samples} rows × {n_features} features")
 
+        # ── Auto-detect task type ────────────────────────────────────────────
+        # Override user selection if data clearly says otherwise
+        n_unique = y.nunique()
+        is_continuous = (
+            pd.api.types.is_float_dtype(y) and n_unique > max(20, 0.05 * n_samples)
+        )
+        if task_type == "auto":
+            is_regression = is_continuous
+        elif task_type == "regression":
+            is_regression = True
+        else:
+            is_regression = False
+
+        logger.info(f"Task type resolved: {'regression' if is_regression else 'classification'} (unique targets: {n_unique})")
+
         # ── Stage 2: Feature Engineering ────────────────────────────────────
         _set_stage(job_id, 1)
         from src.feature_engineering import FeatureEngineeringPipeline
         from src.models import ModelSelectionEngine
 
-        # Quick model candidate to know if tree (affects scaling)
-        _model_candidate = ModelSelectionEngine.get_model_candidate(n_samples, n_features, is_sparse=False)
-        from lightgbm import LGBMClassifier
-        from sklearn.ensemble import RandomForestClassifier
-        is_tree = isinstance(_model_candidate, (LGBMClassifier, RandomForestClassifier))
+        _model_candidate = ModelSelectionEngine.get_model_candidate(n_samples, n_features, is_sparse=False, is_regression=is_regression)
+        from lightgbm import LGBMClassifier, LGBMRegressor
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+        is_tree = isinstance(_model_candidate, (LGBMClassifier, LGBMRegressor, RandomForestClassifier, RandomForestRegressor))
 
         preprocessor = FeatureEngineeringPipeline.build_preprocessor(feature_layout, is_tree_model=is_tree)
 
         # ── Stage 3: Select Model ────────────────────────────────────────────
         _set_stage(job_id, 2)
-        model = ModelSelectionEngine.get_model_candidate(n_samples, n_features, is_sparse=False)
+        model = ModelSelectionEngine.get_model_candidate(n_samples, n_features, is_sparse=False, is_regression=is_regression)
         model_name = type(model).__name__
         logger.info(f"Selected model: {model_name}")
 
@@ -109,8 +123,12 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         from src.tuner import HyperparameterTuner
         from sklearn.model_selection import train_test_split
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y if task_type != "regression" else None)
-        tuned_pipeline = HyperparameterTuner.tune(unified_pipeline, param_grid, X_train, y_train)
+        # Never use stratify for regression (continuous y)
+        stratify_arg = None if is_regression else y
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=stratify_arg
+        )
+        tuned_pipeline = HyperparameterTuner.tune(unified_pipeline, param_grid, X_train, y_train, is_regression=is_regression)
 
         # ── Stage 5: Evaluate ────────────────────────────────────────────────
         _set_stage(job_id, 4)

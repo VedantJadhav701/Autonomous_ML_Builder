@@ -14,10 +14,34 @@ class EvaluationEngine:
 
     @staticmethod
     def evaluate_model(pipeline: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, float]:
-        """Calculates core evaluation metrics on a hold-out test set."""
+        """Calculates core evaluation metrics on a hold-out test set — auto-detects task type."""
+        from lightgbm import LGBMRegressor
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.linear_model import Ridge
+
+        model = pipeline.named_steps.get("model")
+        is_regression = isinstance(model, (LGBMRegressor, RandomForestRegressor, Ridge))
+
         y_pred = pipeline.predict(X_test)
-        
-        # Determine if binary or multi-class for predict_proba
+
+        if is_regression:
+            from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+            mae = mean_absolute_error(y_test, y_pred)
+            rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
+            r2 = r2_score(y_test, y_pred)
+            metrics = {
+                "R2_Score": float(r2),
+                "MAE": float(mae),
+                "RMSE": float(rmse),
+                "F1_Score": None,
+                "ROC_AUC": None,
+                "Precision": None,
+                "Recall": None,
+            }
+            logger.info(f"Regression Metrics: R²={r2:.4f}, MAE={mae:.4f}, RMSE={rmse:.4f}")
+            return metrics
+
+        # ── Classification ───────────────────────────────────────────────────
         try:
             y_proba = pipeline.predict_proba(X_test)
             if len(np.unique(y_test)) == 2:
@@ -25,17 +49,21 @@ class EvaluationEngine:
             else:
                 roc_auc = roc_auc_score(y_test, y_proba, multi_class='ovr')
         except Exception:
-            roc_auc = None  # Model doesn't support predict_proba
-            
+            roc_auc = None
+
         metrics = {
-            "ROC_AUC": float(roc_auc) if roc_auc else None,
+            "ROC_AUC": float(roc_auc) if roc_auc is not None else None,
             "F1_Score": float(f1_score(y_test, y_pred, average='weighted')),
             "Precision": float(precision_score(y_test, y_pred, average='weighted')),
-            "Recall": float(recall_score(y_test, y_pred, average='weighted'))
+            "Recall": float(recall_score(y_test, y_pred, average='weighted')),
+            "R2_Score": None,
+            "MAE": None,
+            "RMSE": None,
         }
-        
-        logger.info(f"Evaluation Metrics Computed: {json.dumps(metrics)}")
+
+        logger.info(f"Evaluation Metrics Computed: {json.dumps({k: v for k, v in metrics.items() if v is not None})}")
         return metrics
+
 
     @staticmethod
     def generate_shap_report(pipeline: Pipeline, X_train: pd.DataFrame, is_tree_model: bool) -> Any:

@@ -2,7 +2,7 @@ import optuna
 from typing import Dict, Any, Tuple
 import pandas as pd
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score, StratifiedKFold, TimeSeriesSplit
+from sklearn.model_selection import cross_val_score, StratifiedKFold, KFold, TimeSeriesSplit
 from src.config import SystemConfig
 from src.monitoring.logger import get_logger
 
@@ -15,11 +15,12 @@ class HyperparameterTuner:
 
     @staticmethod
     def tune(
-        pipeline: Pipeline, 
-        param_grid: Dict[str, list], 
-        X: pd.DataFrame, 
+        pipeline: Pipeline,
+        param_grid: Dict[str, list],
+        X: pd.DataFrame,
         y: pd.Series,
-        llm_overrides: Dict[str, Any] = None
+        llm_overrides: Dict[str, Any] = None,
+        is_regression: bool = False,
     ) -> Pipeline:
         """
         Runs bounded Optuna optimization to find the best hyperparameters.
@@ -28,7 +29,7 @@ class HyperparameterTuner:
         """
         llm_overrides = llm_overrides or {}
         logger.info(f"Starting Optuna tuning bounded by {SystemConfig.OPTUNA_N_TRIALS} trials or {SystemConfig.OPTUNA_TIMEOUT_SEC}s timeout.")
-        
+
         # If no grid provided, get default for the model
         if not param_grid:
             from src.models import ModelSelectionEngine
@@ -39,32 +40,37 @@ class HyperparameterTuner:
             trial_params = {}
             for param_name, param_values in param_grid.items():
                 trial_params[param_name] = trial.suggest_categorical(param_name, param_values)
-            
+
             pipeline.set_params(**trial_params)
-            
-            validation_strat = llm_overrides.get("validation_strategy", "stratified")
+
+            validation_strat = llm_overrides.get("validation_strategy", "auto")
             if validation_strat == "time_series":
                 cv = TimeSeriesSplit(n_splits=3)
+            elif is_regression:
+                cv = KFold(n_splits=3, shuffle=True, random_state=42)
             else:
                 cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-                
+
+            scoring = "r2" if is_regression else "f1_weighted"
+
             try:
-                scores = cross_val_score(pipeline, X, y, cv=cv, scoring='f1_weighted', n_jobs=-1)
+                scores = cross_val_score(pipeline, X, y, cv=cv, scoring=scoring, n_jobs=-1)
                 return scores.mean()
             except Exception:
-                return 0.0
+                return -999.0 if is_regression else 0.0
 
         study = optuna.create_study(direction="maximize")
         study.optimize(
-            objective, 
-            n_trials=SystemConfig.OPTUNA_N_TRIALS, 
+            objective,
+            n_trials=SystemConfig.OPTUNA_N_TRIALS,
             timeout=SystemConfig.OPTUNA_TIMEOUT_SEC
         )
-        
+
         logger.info(f"Optimal Score from Tuning: {study.best_value:.4f}")
-        
+
         # Refit pipeline on full data with best params
         pipeline.set_params(**study.best_params)
         pipeline.fit(X, y)
-        
+
         return pipeline
+

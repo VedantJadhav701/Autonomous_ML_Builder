@@ -331,6 +331,9 @@ function TrainMode({ alerts }: { alerts: any[] }) {
             <Panel title="Model Results" subtitle={`Trained in ${results.training_time_sec}s on ${results.n_samples} rows`}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <MetricCard label="Model Selected" value={results.model_name} accent={C.blue} />
+                {results.metrics?.R2_Score != null && <MetricCard label="R² Score" value={results.metrics.R2_Score.toFixed(3)} accent={C.green} />}
+                {results.metrics?.MAE != null && <MetricCard label="MAE" value={results.metrics.MAE.toFixed(4)} accent={C.yellow} />}
+                {results.metrics?.RMSE != null && <MetricCard label="RMSE" value={results.metrics.RMSE.toFixed(4)} />}
                 {results.metrics?.F1_Score != null && <MetricCard label="F1 Score" value={results.metrics.F1_Score.toFixed(3)} accent={C.green} />}
                 {results.metrics?.ROC_AUC != null && <MetricCard label="ROC-AUC" value={results.metrics.ROC_AUC.toFixed(3)} accent={C.green} />}
                 {results.metrics?.Precision != null && <MetricCard label="Precision" value={results.metrics.Precision.toFixed(3)} />}
@@ -339,6 +342,7 @@ function TrainMode({ alerts }: { alerts: any[] }) {
                 <MetricCard label="Features" value={results.n_features} />
               </div>
             </Panel>
+
 
             {/* Feature Importance */}
             <Panel title="Feature Importance" subtitle="Mean |SHAP| across training sample">
