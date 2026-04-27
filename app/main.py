@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import uuid
 import hashlib
@@ -12,6 +13,14 @@ from src.monitoring.performance import PerformanceTracker
 logger = get_logger(__name__)
 
 app = FastAPI(title="Autonomous ML Builder API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, replace with specific Vercel URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pre-load pipeline and explainer at startup
 try:
