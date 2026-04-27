@@ -1,104 +1,192 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Any
-from src.config import SystemConfig
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Cardinality thresholds
+HIGH_CARDINALITY_THRESHOLD = 20
+MAX_CARDINALITY_LIMIT = 200
+NAN_DROP_THRESHOLD = 0.9     # drop columns with >90% NaN
+MIN_VARIANCE_THRESHOLD = 1e-8  # drop near-constant numeric columns
+
+
 class DataProfiler:
     """Intelligently profiles and optimizes DataFrames for machine learning pipelines."""
-    
+
+    @staticmethod
+    def drop_bad_columns(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
+        """
+        Drops columns that are useless or harmful before training:
+        - >90% NaN
+        - Constant / near-zero variance (numeric)
+        - Likely ID columns (unique ratio > 95% AND integer/object)
+        """
+        to_drop = []
+        n = len(df)
+
+        for col in df.columns:
+            if col == target_col:
+                continue
+
+            nan_ratio = df[col].isna().sum() / max(n, 1)
+            if nan_ratio > NAN_DROP_THRESHOLD:
+                logger.warning(f"Dropping '{col}': {nan_ratio:.1%} NaN values.")
+                to_drop.append(col)
+                continue
+
+            if pd.api.types.is_numeric_dtype(df[col]):
+                filled = df[col].dropna()
+                if len(filled) > 0:
+                    # Near-constant columns
+                    if filled.std() < MIN_VARIANCE_THRESHOLD:
+                        logger.warning(f"Dropping '{col}': near-constant (std≈0).")
+                        to_drop.append(col)
+                        continue
+                    # Likely ID column: all-unique integers
+                    unique_ratio = df[col].nunique() / max(n, 1)
+                    if unique_ratio > 0.95 and pd.api.types.is_integer_dtype(df[col]):
+                        logger.warning(f"Dropping '{col}': likely ID column (unique={unique_ratio:.1%}).")
+                        to_drop.append(col)
+                        continue
+            else:
+                # Object columns that are unique per row → IDs
+                unique_ratio = df[col].nunique() / max(n, 1)
+                if unique_ratio > 0.95:
+                    logger.warning(f"Dropping '{col}': unique string column (unique={unique_ratio:.1%}).")
+                    to_drop.append(col)
+                    continue
+
+        if to_drop:
+            df = df.drop(columns=to_drop)
+            logger.info(f"Dropped {len(to_drop)} low-quality columns: {to_drop}")
+        return df
+
     @staticmethod
     def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Downcasts dtypes to optimize memory footprint globally.
-        Forces constraints based on SystemConfig.
-        """
-        start_mem = df.memory_usage().sum() / 1024**2
+        start_mem = df.memory_usage(deep=True).sum() / 1024 ** 2
         logger.info(f"Memory processing started: {start_mem:.2f} MB")
-        
+
         for col in df.columns:
             col_type = df[col].dtype
-            
-            if col_type != object:
-                c_min = df[col].min()
-                c_max = df[col].max()
-                
-                if str(col_type)[:3] == 'int':
-                    if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
-                        df[col] = df[col].astype(np.int8)
-                    elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
-                        df[col] = df[col].astype(np.int16)
-                    elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
-                        df[col] = df[col].astype(np.int32)
-                else:
-                    if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
-                        df[col] = df[col].astype(np.float32) # float32 for stability in ML
-                    else:
-                        df[col] = df[col].astype(np.float32)
-                        
-            elif str(col_type) == 'object':
-                num_unique_values = len(df[col].unique())
-                num_total_values = len(df[col])
-                if num_unique_values / num_total_values < 0.5:
-                    df[col] = df[col].astype('category')
-                    
-        end_mem = df.memory_usage().sum() / 1024**2
-        logger.info(f"Memory processing completed: {end_mem:.2f} MB (Decreased by {100 * (start_mem - end_mem) / start_mem:.1f}%)")
+
+            if col_type == object:
+                n_unique = df[col].nunique()
+                n_total = len(df[col])
+                if n_unique / max(n_total, 1) < 0.5:
+                    df[col] = df[col].astype("category")
+            elif str(col_type).startswith("int"):
+                c_min, c_max = df[col].min(), df[col].max()
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+            elif str(col_type).startswith("float"):
+                df[col] = df[col].astype(np.float32)
+
+        end_mem = df.memory_usage(deep=True).sum() / 1024 ** 2
+        pct = (start_mem - end_mem) / max(start_mem, 1e-9) * 100
+        logger.info(f"Memory processing completed: {end_mem:.2f} MB (↓{pct:.1f}%)")
         return df
 
     @staticmethod
     def identify_feature_types(df: pd.DataFrame, target_col: str) -> Dict[str, List[str]]:
-        """
-        Infers feature types avoiding memory costly pandas auto operations.
-        Returns numerical, low_cardinality, and high_cardinality feature lists.
-        """
+        """Infers feature types and returns numerical / low_cardinality / high_cardinality / drop lists."""
         features = [col for col in df.columns if col != target_col]
-        
-        numerical = []
-        low_cardinality = []
-        high_cardinality = []
-        to_drop = []
-        
+
+        numerical, low_cardinality, high_cardinality, to_drop = [], [], [], []
+
         for col in features:
+            # Treat category dtype as low cardinality categorical
+            if pd.api.types.is_categorical_dtype(df[col]):
+                n_unique = df[col].nunique()
+                if n_unique > MAX_CARDINALITY_LIMIT:
+                    logger.warning(f"'{col}' exceeds cardinality limit ({n_unique}). Dropping.")
+                    to_drop.append(col)
+                elif n_unique > HIGH_CARDINALITY_THRESHOLD:
+                    high_cardinality.append(col)
+                else:
+                    low_cardinality.append(col)
+                continue
+
             if pd.api.types.is_numeric_dtype(df[col]):
                 numerical.append(col)
                 continue
-                
+
+            # object dtype
             n_unique = df[col].nunique()
-            
-            if n_unique > SystemConfig.MAX_CARDINALITY_LIMIT:
-                logger.warning(f"Feature '{col}' exceeds maximum cardinality ({n_unique}). Dropping.")
+            if n_unique > MAX_CARDINALITY_LIMIT:
+                logger.warning(f"'{col}' exceeds cardinality limit ({n_unique}). Dropping.")
                 to_drop.append(col)
-            elif n_unique > SystemConfig.HIGH_CARDINALITY_THRESHOLD:
+            elif n_unique > HIGH_CARDINALITY_THRESHOLD:
                 high_cardinality.append(col)
             else:
                 low_cardinality.append(col)
-                
+
         return {
             "numerical": numerical,
             "low_cardinality": low_cardinality,
             "high_cardinality": high_cardinality,
-            "drop": to_drop
+            "drop": to_drop,
         }
-        
-    @staticmethod
-    def profile_data(df: pd.DataFrame) -> Dict[str, Any]:
-        """Legacy alias for identify_feature_types used in demo scripts."""
-        layout = DataProfiler.identify_feature_types(df, target_col="")
-        return {"feature_layout": layout}
 
     @staticmethod
     def profile_and_prepare(df: pd.DataFrame, target_col: str) -> Tuple[pd.DataFrame, pd.Series, Dict[str, List[str]]]:
-        """Orchestrates memory optimization, profiling, and X/y split."""
-        df_optimized = DataProfiler.optimize_memory(df)
-        feature_layout = DataProfiler.identify_feature_types(df_optimized, target_col)
-        
-        # Drop excessive cardinality columns
+        """Full pipeline: drop bad cols → memory optimize → profile → X/y split."""
+        # Step 1: drop useless columns
+        df = DataProfiler.drop_bad_columns(df, target_col)
+
+        # Step 2: fill NaNs in target with mode/median before splitting
+        if df[target_col].isna().any():
+            if pd.api.types.is_numeric_dtype(df[target_col]):
+                df[target_col] = df[target_col].fillna(df[target_col].median())
+            else:
+                df[target_col] = df[target_col].fillna(df[target_col].mode()[0])
+
+        # Step 3: memory optimize (features only, keep target pristine)
+        target_series = df[target_col].copy()
+        df_features = df.drop(columns=[target_col])
+        df_features = DataProfiler.optimize_memory(df_features)
+        df = pd.concat([df_features, target_series], axis=1)
+
+        # Step 4: identify feature types
+        feature_layout = DataProfiler.identify_feature_types(df, target_col)
+
+        # Drop extreme cardinality columns
         if feature_layout["drop"]:
-            df_optimized.drop(columns=feature_layout["drop"], inplace=True)
-            
-        y = df_optimized[target_col]
-        X = df_optimized.drop(columns=[target_col])
+            df = df.drop(columns=feature_layout["drop"], errors="ignore")
+
+        y = df[target_col]
+        X = df.drop(columns=[target_col])
         return X, y, feature_layout
+
+    @staticmethod
+    def build_feature_schema(df_raw: pd.DataFrame, target_col: str) -> Dict[str, Dict]:
+        """
+        Builds a feature schema dict for the frontend dynamic form.
+        Each feature: { "type": "number"|"text", "values": [...] | null, "sample": any }
+        """
+        schema = {}
+        for col in df_raw.columns:
+            if col == target_col:
+                continue
+            series = df_raw[col].dropna()
+            if len(series) == 0:
+                continue
+            if pd.api.types.is_numeric_dtype(series):
+                schema[col] = {
+                    "type": "number",
+                    "values": None,
+                    "sample": float(round(series.median(), 4)),
+                }
+            else:
+                unique_vals = [str(v) for v in series.unique().tolist()[:20]]
+                schema[col] = {
+                    "type": "text",
+                    "values": unique_vals,
+                    "sample": str(series.mode()[0]) if len(series) > 0 else "",
+                }
+        return schema

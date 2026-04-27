@@ -372,20 +372,36 @@ function TrainMode({ alerts }: { alerts: any[] }) {
 }
 
 // ─────────────────────────────────────────────────── INFERENCE MODE ──────────
+type FeatureSpec = { type: "number" | "text"; values: string[] | null; sample: any };
+type Metadata    = { available: boolean; features?: Record<string, FeatureSpec>; task_type?: string; model_name?: string; target_col?: string };
+
 function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain: () => void }) {
-  const [formData, setFormData] = useState<Record<string, any>>({
-    age: 28, income: 72000, home_ownership: "RENT", emp_length: 6,
-    loan_intent: "PERSONAL", loan_grade: "B", loan_amnt: 15000,
-    loan_int_rate: 12.5, loan_percent_income: 0.21,
-    cb_person_default_on_file: "N", cb_person_cred_hist_length: 4,
-  });
-  const [prediction, setPrediction] = useState<any>(null);
-  const [shap, setShap] = useState<Record<string, number> | null>(null);
-  const [feedbackId, setFeedbackId] = useState("");
+  const [metadata, setMetadata]       = useState<Metadata | null>(null);
+  const [formData, setFormData]       = useState<Record<string, any>>({});
+  const [prediction, setPrediction]   = useState<any>(null);
+  const [shap, setShap]               = useState<Record<string, number> | null>(null);
+  const [feedbackId, setFeedbackId]   = useState("");
   const [feedbackLabel, setFeedbackLabel] = useState("0");
   const [feedbackMsg, setFeedbackMsg] = useState<"success" | "error" | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"prediction" | "shap" | "feedback" | "alerts">("prediction");
+  const [loading, setLoading]         = useState(false);
+  const [activeTab, setActiveTab]     = useState<"prediction" | "shap" | "feedback" | "alerts">("prediction");
+
+  // Load metadata + prefill form with sample values
+  useEffect(() => {
+    fetch(`${API_BASE}/metadata`)
+      .then(r => r.json())
+      .then((meta: Metadata) => {
+        setMetadata(meta);
+        if (meta.available && meta.features) {
+          const init: Record<string, any> = {};
+          Object.entries(meta.features).forEach(([col, spec]) => {
+            init[col] = spec.sample ?? (spec.type === "number" ? 0 : "");
+          });
+          setFormData(init);
+        }
+      })
+      .catch(() => setMetadata({ available: false }));
+  }, []);
 
   const handlePredict = async () => {
     setLoading(true); setPrediction(null); setShap(null);
@@ -398,8 +414,7 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
       ]);
       if (pRes.ok) setPrediction(await pRes.json());
       if (sRes.ok) { const sd = await sRes.json(); if (sd.explainability?.[0]) { setShap(sd.explainability[0]); setActiveTab("shap"); } }
-    } catch (e: any) { alert("Inference failed: " + e.message); }
-    finally { setLoading(false); }
+    } finally { setLoading(false); }
   };
 
   const handleFeedback = async (e: React.FormEvent) => {
@@ -411,6 +426,8 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
   };
 
   const shapData = shap ? Object.entries(shap).map(([k, v]) => ({ name: k.split("__").pop()?.toUpperCase() ?? k, val: v })).sort((a, b) => Math.abs(b.val) - Math.abs(a.val)).slice(0, 8) : [];
+  const featureEntries = metadata?.features ? Object.entries(metadata.features) : [];
+  const isRegression   = metadata?.task_type === "regression";
 
   const tabs = [
     { id: "prediction" as const, label: "Inference", icon: <Activity style={{ width: 14, height: 14 }} /> },
@@ -422,9 +439,13 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* Note if no model loaded */}
-      <div style={{ padding: "12px 18px", borderRadius: 12, backgroundColor: "rgba(59,130,246,0.05)", border: "1px solid rgba(59,130,246,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <p style={{ margin: 0, fontSize: 13, color: C.muted }}>Using the pre-trained model. <span style={{ color: C.blue }}>Train a new model</span> from your own dataset first for best results.</p>
+      {/* Model badge */}
+      <div style={{ padding: "12px 18px", borderRadius: 12, backgroundColor: metadata?.available ? "rgba(52,211,153,0.05)" : "rgba(59,130,246,0.05)", border: `1px solid ${metadata?.available ? "rgba(52,211,153,0.15)" : "rgba(59,130,246,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
+          {metadata?.available
+            ? <>Active model: <strong style={{ color: "#fff" }}>{metadata.model_name}</strong> · {metadata.task_type} · target: <code style={{ color: C.blue }}>{metadata.target_col}</code></>
+            : "No model trained yet. Train a model first for best results."}
+        </p>
         <GhostBtn label="Go to Train →" onClick={onSwitchToTrain} />
       </div>
 
@@ -433,28 +454,37 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
         {tabs.map(t => <TabBtn key={t.id} id={t.id} label={t.label} icon={t.icon} active={activeTab === t.id} onClick={() => setActiveTab(t.id)} hasAlert={t.id === "alerts" && alerts.length > 0} />)}
       </div>
 
-      {/* Inference */}
+      {/* ── Inference Tab ── */}
       {activeTab === "prediction" && (
-        <Panel title="Prediction Engine" subtitle="Fill in feature values and run live inference against the deployed model.">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {Object.entries(formData).map(([key, val]) => (
-                  <Field key={key} label={key.replace(/_/g, " ")} value={val}
-                    onChange={v => setFormData(p => ({ ...p, [key]: isNaN(Number(v)) || v === "" ? v : Number(v) }))} />
-                ))}
+        <Panel title="Prediction Engine" subtitle={metadata?.available ? `Predicting: ${metadata.target_col} | Model: ${metadata.model_name}` : "Train a model to enable predictions."}>
+          {!metadata?.available || featureEntries.length === 0 ? (
+            <EmptyState icon="🤖" text="No model loaded yet. Go to Train Mode, upload your CSV, and build the pipeline first." cta="Go to Train →" onCta={onSwitchToTrain} />
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  {featureEntries.map(([col, spec]) => (
+                    <DynamicField
+                      key={col}
+                      col={col}
+                      spec={spec}
+                      value={formData[col] ?? spec.sample ?? ""}
+                      onChange={v => setFormData(p => ({ ...p, [col]: spec.type === "number" ? (isNaN(Number(v)) ? v : Number(v)) : v }))}
+                    />
+                  ))}
+                </div>
+                <RunBtn loading={loading} onClick={handlePredict} />
               </div>
-              <RunBtn loading={loading} onClick={handlePredict} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <ResultBox prediction={prediction} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <StatBox label="Inference Speed" value="< 10ms" sub="P95 latency" />
-                <StatBox label="RAM Budget" value="< 1 GB" sub="Footprint" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <ResultBox prediction={prediction} isRegression={isRegression} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <StatBox label="Inference Speed" value="< 10ms" sub="P95 latency" />
+                  <StatBox label="RAM Budget" value="< 1 GB" sub="Footprint" />
+                </div>
+                {prediction && !isRegression && <ActionBtn onClick={() => setActiveTab("shap")} label="View SHAP Explanations →" />}
               </div>
-              {prediction && <ActionBtn onClick={() => setActiveTab("shap")} label="View SHAP Explanations →" />}
             </div>
-          </div>
+          )}
         </Panel>
       )}
 
@@ -694,14 +724,58 @@ function ActionBtn({ onClick, label }: { onClick: () => void; label: string }) {
   );
 }
 
-function ResultBox({ prediction }: { prediction: any }) {
+function DynamicField({ col, spec, value, onChange }: {
+  col: string;
+  spec: { type: "number" | "text"; values: string[] | null; sample: any };
+  value: any;
+  onChange: (v: string) => void;
+}) {
+  const label = col.replace(/_/g, " ");
+  const inp: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8,
+    backgroundColor: "#1a1a1a", border: `1px solid ${C.border}`,
+    color: "#fff", fontSize: 13, boxSizing: "border-box",
+    outline: "none",
+  };
   return (
-    <div style={{ borderRadius: 14, border: `1px solid ${C.border}`, backgroundColor: C.card, height: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center" }}>
-      {prediction ? (<>
-        <p style={{ fontSize: 11, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Result</p>
-        <p style={{ fontSize: 44, fontWeight: 900, color: prediction.predictions[0] === 0 ? C.green : C.red, margin: 0, letterSpacing: "-0.02em" }}>
-          {prediction.predictions[0] === 0 ? "APPROVED" : "REJECTED"}
-        </p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</label>
+      {spec.values && spec.values.length > 0 ? (
+        <select value={value} onChange={e => onChange(e.target.value)} style={{ ...inp }}>
+          {spec.values.map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+      ) : (
+        <input
+          type={spec.type === "number" ? "number" : "text"}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          step={spec.type === "number" ? "any" : undefined}
+          style={inp}
+        />
+      )}
+    </div>
+  );
+}
+
+function ResultBox({ prediction, isRegression }: { prediction: any; isRegression?: boolean }) {
+  const val = prediction?.predictions?.[0];
+  const isNull = val === undefined || val === null;
+  let display = "";
+  let color = C.blue;
+  if (!isNull) {
+    if (isRegression) {
+      display = typeof val === "number" ? val.toFixed(4) : String(val);
+      color = C.blue;
+    } else {
+      display = val === 0 ? "CLASS 0" : val === 1 ? "CLASS 1" : String(val);
+      color = val === 0 ? C.green : C.red;
+    }
+  }
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${C.border}`, backgroundColor: C.card, minHeight: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center", padding: 16 }}>
+      {!isNull ? (<>
+        <p style={{ fontSize: 11, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Prediction</p>
+        <p style={{ fontSize: isRegression ? 32 : 38, fontWeight: 900, color, margin: 0, letterSpacing: "-0.02em", wordBreak: "break-all" }}>{display}</p>
         <p style={{ fontSize: 10, fontFamily: "monospace", color: C.dim, margin: 0, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prediction.request_ids?.[0]}</p>
       </>) : <p style={{ fontSize: 14, color: C.dim, fontStyle: "italic" }}>No prediction yet</p>}
     </div>

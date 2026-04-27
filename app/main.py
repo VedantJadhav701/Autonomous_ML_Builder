@@ -12,7 +12,7 @@ from src.monitoring.performance import PerformanceTracker
 
 logger = get_logger(__name__)
 
-app = FastAPI(title="Autonomous ML Builder API", version="1.0.0")
+app = FastAPI(title="Autonomous ML Builder API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,17 +25,19 @@ app.add_middleware(
 # ── Global inference state (hot-swappable) ──────────────────────────────────
 try:
     PIPELINE, EXPLAINER = ModelArtifactTracker.load_artifacts()
+    MODEL_METADATA = ModelArtifactTracker.load_metadata()
     logger.info("Pipeline and Explainer loaded successfully for inference.")
 except Exception as e:
     logger.error(f"Failed to load artifacts: {e}")
     PIPELINE = None
     EXPLAINER = None
+    MODEL_METADATA = None
 
 EXPLAIN_CACHE: dict = {}
 MAX_CACHE_SIZE = 100
 
 # ── Training job registry ────────────────────────────────────────────────────
-JOBS: dict = {}   # job_id -> { stage, step, progress, status, result, error }
+JOBS: dict = {}
 
 STAGE_LABELS = [
     "Profiling Data",
@@ -49,7 +51,6 @@ TOTAL_STEPS = len(STAGE_LABELS)
 
 
 def _set_stage(job_id: str, step_idx: int):
-    """Update job progress (0-indexed step)."""
     JOBS[job_id].update({
         "stage": STAGE_LABELS[step_idx],
         "step": step_idx + 1,
@@ -58,65 +59,83 @@ def _set_stage(job_id: str, step_idx: int):
 
 
 def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str):
-    """Background training thread — runs the full 6-stage pipeline."""
-    global PIPELINE, EXPLAINER
+    """Background training thread — robust 6-stage pipeline for any dataset."""
+    global PIPELINE, EXPLAINER, MODEL_METADATA
 
-    JOBS[job_id] = {"stage": "Starting", "step": 0, "progress": 0, "status": "running", "result": None, "error": None}
+    JOBS[job_id] = {"stage": "Starting", "step": 0, "progress": 0,
+                    "status": "running", "result": None, "error": None}
     t_start = time.time()
 
     try:
         # ── Stage 1: Profile Data ────────────────────────────────────────────
         _set_stage(job_id, 0)
         from src.data_profiler import DataProfiler
-        from src.config import SystemConfig
 
         df_raw = pd.read_csv(io.BytesIO(csv_bytes))
-        if len(df_raw) > SystemConfig.MAX_ROWS:
-            df_raw = df_raw.head(SystemConfig.MAX_ROWS)
-            logger.warning(f"Dataset truncated to {SystemConfig.MAX_ROWS} rows.")
+
+        # Row cap
+        MAX_ROWS = 50_000
+        if len(df_raw) > MAX_ROWS:
+            df_raw = df_raw.sample(MAX_ROWS, random_state=42).reset_index(drop=True)
+            logger.warning(f"Dataset sampled to {MAX_ROWS} rows.")
 
         if target_col not in df_raw.columns:
-            raise ValueError(f"Target column '{target_col}' not found in CSV.")
+            raise ValueError(f"Target column '{target_col}' not found in CSV. "
+                             f"Available: {list(df_raw.columns)}")
 
-        # ── Auto-detect task type from RAW data (before dtype mutation) ──────
-        raw_target = df_raw[target_col]
-        n_unique_raw = raw_target.nunique()
+        # ── Detect task type from RAW data (before any dtype mutation) ───────
+        raw_target = df_raw[target_col].dropna()
+        n_unique_raw = int(raw_target.nunique())
         n_total_raw  = len(raw_target)
-        is_continuous = (
-            pd.api.types.is_float_dtype(raw_target)
-            and n_unique_raw > max(20, 0.05 * n_total_raw)
-        )
+        is_float_target = pd.api.types.is_float_dtype(raw_target)
+        is_continuous = is_float_target and n_unique_raw > max(20, 0.05 * n_total_raw)
+        is_str_target = raw_target.dtype == object
+
         if task_type == "auto":
-            is_regression = is_continuous
+            is_regression = is_continuous and not is_str_target
         elif task_type == "regression":
             is_regression = True
         else:
             is_regression = False
 
         logger.info(
-            f"Task type resolved: {'REGRESSION' if is_regression else 'CLASSIFICATION'} "
+            f"Task type → {'REGRESSION' if is_regression else 'CLASSIFICATION'} "
             f"(dtype={raw_target.dtype}, unique={n_unique_raw}/{n_total_raw})"
         )
 
-        X, y, feature_layout = DataProfiler.profile_and_prepare(df_raw, target_col)
+        # Build feature schema from raw data (for dynamic frontend form)
+        feature_schema = DataProfiler.build_feature_schema(df_raw, target_col)
+
+        # Profile and prepare (robust, drops bad columns internally)
+        X, y, feature_layout = DataProfiler.profile_and_prepare(df_raw.copy(), target_col)
         n_samples, n_features = X.shape
         logger.info(f"Profiled: {n_samples} rows × {n_features} features")
+
+        if n_features == 0:
+            raise ValueError("No usable features found after profiling. "
+                             "Check that the dataset has feature columns besides the target.")
 
         # ── Stage 2: Feature Engineering ────────────────────────────────────
         _set_stage(job_id, 1)
         from src.feature_engineering import FeatureEngineeringPipeline
         from src.models import ModelSelectionEngine
-
-        _model_candidate = ModelSelectionEngine.get_model_candidate(n_samples, n_features, is_sparse=False, is_regression=is_regression)
         from lightgbm import LGBMClassifier, LGBMRegressor
         from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-        is_tree = isinstance(_model_candidate, (LGBMClassifier, LGBMRegressor, RandomForestClassifier, RandomForestRegressor))
 
-        preprocessor = FeatureEngineeringPipeline.build_preprocessor(feature_layout, is_tree_model=is_tree)
+        _candidate = ModelSelectionEngine.get_model_candidate(
+            n_samples, n_features, is_sparse=False, is_regression=is_regression
+        )
+        is_tree = isinstance(_candidate, (LGBMClassifier, LGBMRegressor,
+                                          RandomForestClassifier, RandomForestRegressor))
+        preprocessor = FeatureEngineeringPipeline.build_preprocessor(
+            feature_layout, is_tree_model=is_tree
+        )
 
         # ── Stage 3: Select Model ────────────────────────────────────────────
         _set_stage(job_id, 2)
-        model = ModelSelectionEngine.get_model_candidate(n_samples, n_features, is_sparse=False, is_regression=is_regression)
+        model = ModelSelectionEngine.get_model_candidate(
+            n_samples, n_features, is_sparse=False, is_regression=is_regression
+        )
         model_name = type(model).__name__
         logger.info(f"Selected model: {model_name}")
 
@@ -128,52 +147,75 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         from src.tuner import HyperparameterTuner
         from sklearn.model_selection import train_test_split
 
-        # Never use stratify for regression (continuous y)
-        stratify_arg = None if is_regression else y
+        # Never stratify for regression or when target has many unique values
+        use_stratify = (not is_regression) and (y.nunique() <= max(50, 0.1 * n_samples))
+        stratify_arg = y if use_stratify else None
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=stratify_arg
         )
-        tuned_pipeline = HyperparameterTuner.tune(unified_pipeline, param_grid, X_train, y_train, is_regression=is_regression)
+        tuned_pipeline = HyperparameterTuner.tune(
+            unified_pipeline, param_grid, X_train, y_train, is_regression=is_regression
+        )
 
         # ── Stage 5: Evaluate ────────────────────────────────────────────────
         _set_stage(job_id, 4)
         from src.evaluation import EvaluationEngine
         metrics = EvaluationEngine.evaluate_model(tuned_pipeline, X_test, y_test)
-        explainer = EvaluationEngine.generate_shap_report(tuned_pipeline, X_train, is_tree_model=is_tree)
+        explainer = EvaluationEngine.generate_shap_report(
+            tuned_pipeline, X_train, is_tree_model=is_tree
+        )
 
-        # Feature importance (mean |SHAP| across training sample)
+        # Feature importance via SHAP
         feature_importance: dict = {}
         try:
             preprocessor_fitted = tuned_pipeline.named_steps["preprocessor"]
             feat_names = list(preprocessor_fitted.get_feature_names_out())
-            X_tr_transformed = preprocessor_fitted.transform(X_train.head(200))
-            if hasattr(X_tr_transformed, "toarray"):
-                X_tr_transformed = X_tr_transformed.toarray()
-
+            sample = X_train.head(min(200, len(X_train)))
+            X_tr = preprocessor_fitted.transform(sample)
+            if hasattr(X_tr, "toarray"):
+                X_tr = X_tr.toarray()
             if explainer is not None:
-                shap_vals = explainer.shap_values(X_tr_transformed)
-                if isinstance(shap_vals, list):
-                    shap_arr = np.abs(shap_vals[-1])
+                raw_shap = explainer.shap_values(X_tr)
+                if isinstance(raw_shap, list):
+                    shap_arr = np.abs(raw_shap[-1])
+                elif raw_shap.ndim == 3:
+                    shap_arr = np.abs(raw_shap[:, :, -1])
                 else:
-                    shap_arr = np.abs(shap_vals) if shap_vals.ndim == 2 else np.abs(shap_vals[:, :, -1])
+                    shap_arr = np.abs(raw_shap)
                 mean_abs = shap_arr.mean(axis=0)
-                feature_importance = {feat_names[i]: float(mean_abs[i]) for i in range(len(feat_names))}
-                # Top 12 sorted
-                feature_importance = dict(sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:12])
+                if len(mean_abs) == len(feat_names):
+                    feature_importance = {
+                        feat_names[i]: float(mean_abs[i]) for i in range(len(feat_names))
+                    }
+                    feature_importance = dict(
+                        sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:12]
+                    )
         except Exception as ex:
-            logger.warning(f"Feature importance extraction failed: {ex}")
+            logger.warning(f"Feature importance extraction failed (non-fatal): {ex}")
 
         # ── Stage 6: Deploy ──────────────────────────────────────────────────
         _set_stage(job_id, 5)
-        ModelArtifactTracker.save_pipeline(tuned_pipeline, explainer)
+
+        # Build and save metadata
+        metadata = {
+            "features": feature_schema,
+            "task_type": "regression" if is_regression else "classification",
+            "target_col": target_col,
+            "model_name": model_name,
+            "n_samples": n_samples,
+            "n_features": n_features,
+        }
+        ModelArtifactTracker.save_pipeline(tuned_pipeline, explainer, metadata=metadata)
+
         # Hot-swap global inference state
         PIPELINE = tuned_pipeline
         EXPLAINER = explainer
+        MODEL_METADATA = metadata
         EXPLAIN_CACHE.clear()
-        logger.info("Hot-swap complete: new model is live for inference.")
+        logger.info("Hot-swap complete — new model is live for inference.")
 
         elapsed = round(time.time() - t_start, 1)
-
         JOBS[job_id].update({
             "stage": "Complete",
             "step": TOTAL_STEPS,
@@ -181,6 +223,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
             "status": "done",
             "result": {
                 "model_name": model_name,
+                "task_type": "regression" if is_regression else "classification",
                 "metrics": metrics,
                 "training_time_sec": elapsed,
                 "feature_importance": feature_importance,
@@ -190,7 +233,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         })
 
     except Exception as e:
-        logger.error(f"Training job {job_id} failed: {e}")
+        logger.error(f"Training job {job_id} failed: {e}", exc_info=True)
         JOBS[job_id].update({"status": "failed", "error": str(e), "progress": -1})
 
 
@@ -203,27 +246,26 @@ async def start_training(
     target_column: str = Form(...),
     task_type: str = Form("auto"),
 ):
-    """Upload a CSV and launch an async training job. Returns a job_id to poll."""
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
-
     csv_bytes = await file.read()
     if len(csv_bytes) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File exceeds 5 MB limit.")
 
     job_id = str(uuid.uuid4())
-    JOBS[job_id] = {"stage": "Queued", "step": 0, "progress": 0, "status": "queued", "result": None, "error": None}
-
-    # Run in a real OS thread (not FastAPI's thread pool) to avoid blocking the event loop
-    thread = threading.Thread(target=_run_training, args=(job_id, csv_bytes, target_column, task_type), daemon=True)
+    JOBS[job_id] = {"stage": "Queued", "step": 0, "progress": 0,
+                    "status": "queued", "result": None, "error": None}
+    thread = threading.Thread(
+        target=_run_training,
+        args=(job_id, csv_bytes, target_column, task_type),
+        daemon=True,
+    )
     thread.start()
-
     return {"job_id": job_id}
 
 
 @app.get("/status/{job_id}")
 async def job_status(job_id: str):
-    """Poll training progress. Returns stage, step, progress (0-100), status."""
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found.")
     job = JOBS[job_id]
@@ -240,16 +282,24 @@ async def job_status(job_id: str):
 
 @app.get("/results/{job_id}")
 async def job_results(job_id: str):
-    """Retrieve final result once status == done."""
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found.")
     job = JOBS[job_id]
     if job["status"] != "done":
-        raise HTTPException(status_code=400, detail=f"Job is not complete yet (status: {job['status']}).")
+        raise HTTPException(status_code=400, detail=f"Job not complete (status: {job['status']}).")
     return job["result"]
 
 
-# ── Inference endpoints (unchanged) ─────────────────────────────────────────
+@app.get("/metadata")
+async def get_metadata():
+    """Returns saved feature schema so the frontend can build a dynamic inference form."""
+    meta = MODEL_METADATA or ModelArtifactTracker.load_metadata()
+    if meta is None:
+        return {"available": False}
+    return {"available": True, **meta}
+
+
+# ── Inference endpoints ──────────────────────────────────────────────────────
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -259,14 +309,24 @@ async def predict(request: PredictionRequest):
         input_data = [item.model_dump() for item in request.data]
         df = pd.DataFrame(input_data)
         n_rows = len(df)
-        request_ids = request.request_ids if request.request_ids and len(request.request_ids) == n_rows else [str(uuid.uuid4()) for _ in range(n_rows)]
-        DriftDetector.check_drift(df)
+        request_ids = (
+            request.request_ids
+            if request.request_ids and len(request.request_ids) == n_rows
+            else [str(uuid.uuid4()) for _ in range(n_rows)]
+        )
+        try:
+            DriftDetector.check_drift(df)
+        except Exception:
+            pass  # drift detection is non-fatal
         preds = PIPELINE.predict(df)
         preds_list = preds.tolist() if hasattr(preds, "tolist") else list(preds)
-        PerformanceTracker.stage_predictions(request_ids, preds_list)
+        try:
+            PerformanceTracker.stage_predictions(request_ids, preds_list)
+        except Exception:
+            pass
         return PredictionResponse(predictions=preds_list, request_ids=request_ids)
     except Exception as e:
-        logger.error(f"Inference error: {str(e)}")
+        logger.error(f"Inference error: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -279,6 +339,7 @@ async def explain(request: PredictionRequest):
         payload_hash = hashlib.md5(json_lib.dumps(input_data, sort_keys=True).encode()).hexdigest()
         if payload_hash in EXPLAIN_CACHE:
             return ExplainResponse(explainability=EXPLAIN_CACHE[payload_hash])
+
         df = pd.DataFrame(input_data)
         if len(df) > 50:
             df = df.head(50)
@@ -286,22 +347,33 @@ async def explain(request: PredictionRequest):
         X_transformed = preprocessor.transform(df)
         if hasattr(X_transformed, "toarray"):
             X_transformed = X_transformed.toarray()
-        shap_results = EXPLAINER(X_transformed).values
-        feature_names = preprocessor.get_feature_names_out()
+
+        raw_shap = EXPLAINER(X_transformed).values if callable(EXPLAINER) else EXPLAINER.shap_values(X_transformed)
+        feature_names = list(preprocessor.get_feature_names_out())
+
+        # Normalise shape: handle (n, f), (n, f, c) and list-of-arrays
+        if isinstance(raw_shap, list):
+            shap_arr = raw_shap[-1]  # last class for binary
+        elif isinstance(raw_shap, np.ndarray) and raw_shap.ndim == 3:
+            shap_arr = raw_shap[:, :, -1]
+        else:
+            shap_arr = raw_shap
+
         explanations = []
-        for i in range(len(shap_results)):
-            row_shap = shap_results[i]
+        for i in range(len(shap_arr)):
+            row_shap = shap_arr[i]
             contribs = {}
-            for j in range(len(feature_names)):
+            for j in range(min(len(feature_names), len(row_shap))):
                 val = row_shap[j]
-                contribs[feature_names[j]] = float(val[-1]) if hasattr(val, "__len__") and len(val) > 1 else float(val)
+                contribs[feature_names[j]] = float(val) if np.isscalar(val) else float(val[-1])
             explanations.append(contribs)
+
         if len(EXPLAIN_CACHE) >= MAX_CACHE_SIZE:
             EXPLAIN_CACHE.pop(next(iter(EXPLAIN_CACHE)))
         EXPLAIN_CACHE[payload_hash] = explanations
         return ExplainResponse(explainability=explanations)
     except Exception as e:
-        logger.error(f"Explain error: {str(e)}")
+        logger.error(f"Explain error: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -309,7 +381,7 @@ async def explain(request: PredictionRequest):
 async def feedback(request: FeedbackRequest):
     try:
         PerformanceTracker.log_feedback(request.request_ids, request.truths)
-        return {"status": "Feedback securely logged and evaluated."}
+        return {"status": "Feedback logged."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -326,4 +398,6 @@ async def health_check():
         "status": "ok" if PIPELINE is not None else "no_model",
         "pipeline_loaded": PIPELINE is not None,
         "explainer_loaded": EXPLAINER is not None,
+        "model_name": MODEL_METADATA.get("model_name") if MODEL_METADATA else None,
+        "task_type": MODEL_METADATA.get("task_type") if MODEL_METADATA else None,
     }
