@@ -2,18 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ArrowLeft, Github, CheckCircle2, XCircle, Clock, AlertTriangle, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface Health {
-  status: string;
-  pipeline_loaded: boolean;
-  explainer_loaded: boolean;
-}
-
-// ─── Default form payload ──────────────────────────────────────────────────────
 const DEFAULT_PAYLOAD = {
   age: 28,
   income: 72000,
@@ -29,7 +22,7 @@ const DEFAULT_PAYLOAD = {
 };
 
 export default function AppDashboard() {
-  const [health, setHealth] = useState<Health | null>(null);
+  const [health, setHealth] = useState<any>(null);
   const [latency, setLatency] = useState<number | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>(DEFAULT_PAYLOAD);
   const [prediction, setPrediction] = useState<any>(null);
@@ -39,10 +32,8 @@ export default function AppDashboard() {
   const [feedbackLabel, setFeedbackLabel] = useState("0");
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
   const [fileMsg, setFileMsg] = useState<string | null>(null);
 
-  // ── System health polling ───────────────────────────────────────────────────
   useEffect(() => {
     const poll = async () => {
       const t0 = Date.now();
@@ -66,7 +57,6 @@ export default function AppDashboard() {
     return () => clearInterval(inv);
   }, []);
 
-  // ── Inference ────────────────────────────────────────────────────────────────
   const handlePredict = async () => {
     setLoading(true);
     setPrediction(null);
@@ -74,25 +64,20 @@ export default function AppDashboard() {
     try {
       const body = JSON.stringify({ data: [formData] });
       const headers = { "Content-Type": "application/json" };
-
       const [pRes, sRes] = await Promise.all([
         fetch(`${API_BASE}/predict`, { method: "POST", headers, body }),
         fetch(`${API_BASE}/explain`, { method: "POST", headers, body }),
       ]);
-
       if (pRes.ok) setPrediction(await pRes.json());
       if (sRes.ok) {
         const sd = await sRes.json();
         if (sd.explainability?.[0]) setShap(sd.explainability[0]);
       }
-    } catch (e) {
-      console.error("Inference error:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Feedback ─────────────────────────────────────────────────────────────────
   const handleFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -101,23 +86,20 @@ export default function AppDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ request_ids: [feedbackId], truths: [Number(feedbackLabel)] }),
       });
-      setFeedbackMsg(res.ok ? "✓ Feedback logged successfully." : "✗ Failed to log feedback.");
+      setFeedbackMsg(res.ok ? "success" : "error");
     } catch {
-      setFeedbackMsg("✗ Network error.");
+      setFeedbackMsg("error");
     }
   };
 
-  // ── CSV upload ────────────────────────────────────────────────────────────────
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.name.endsWith(".csv")) return setFileMsg("✗ Only CSV files allowed.");
-    if (f.size > 5 * 1024 * 1024) return setFileMsg("✗ File too large (max 5 MB).");
-    setFile(f);
-    setFileMsg(`✓ Ready: ${f.name} (${(f.size / 1024).toFixed(0)} KB)`);
+    if (!f.name.endsWith(".csv")) return setFileMsg("error:Only CSV files are accepted.");
+    if (f.size > 5 * 1024 * 1024) return setFileMsg("error:File exceeds the 5 MB limit.");
+    setFileMsg(`ok:${f.name} — ${(f.size / 1024).toFixed(0)} KB ready`);
   };
 
-  // ── SHAP chart data ───────────────────────────────────────────────────────────
   const shapData = shap
     ? Object.entries(shap)
         .map(([k, v]) => ({ name: k.split("__").pop()?.toUpperCase() ?? k, val: v }))
@@ -126,171 +108,188 @@ export default function AppDashboard() {
     : [];
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* ── Top Bar ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-gray-800 bg-black/90 backdrop-blur-md px-6 h-14 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Sticky header */}
+      <header className="sticky top-0 z-40 h-14 border-b border-white/[0.06] bg-[#0a0a0a]/90 backdrop-blur-xl px-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-gray-400 hover:text-white text-sm transition-colors">
-            ← Back
+          <Link href="/" className="flex items-center gap-2 text-white/40 hover:text-white/80 transition-colors text-sm font-medium">
+            <ArrowLeft className="w-4 h-4" />
+            Home
           </Link>
-          <span className="text-gray-700">|</span>
-          <span className="font-bold text-sm">Operational Console</span>
+          <span className="text-white/10">|</span>
+          <span className="text-sm font-semibold text-white/70">Operational Console</span>
         </div>
         <div className="flex items-center gap-3">
-          <Badge label="Pipeline" active={health?.pipeline_loaded} />
-          <Badge label="SHAP" active={health?.explainer_loaded} />
-          <div className="text-xs text-gray-500 font-mono">
+          <StatusPill label="Pipeline" active={health?.pipeline_loaded} />
+          <StatusPill label="SHAP" active={health?.explainer_loaded} />
+          <div className="hidden md:flex items-center gap-1.5 text-xs font-mono">
             {health?.status === "ok" ? (
-              <span className="text-green-500">API: {latency}ms</span>
+              <span className="text-emerald-500">{latency}ms</span>
             ) : (
-              <span className="text-red-500">API: Offline</span>
+              <span className="text-red-400">Offline</span>
             )}
           </div>
+          <a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" rel="noopener noreferrer" className="text-white/30 hover:text-white/70 transition-colors">
+            <Github className="w-4 h-4" />
+          </a>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-6 py-10 space-y-10">
-
-        {/* ── 1. Live Inference ─────────────────────────────────────────────── */}
-        <Card title="Prediction Engine" subtitle="Adjust inputs and run live inference">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Input grid */}
-            <div className="space-y-4">
+      <div className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+        {/* ── Section 1: Prediction Engine ─────────────────────────────────── */}
+        <Card
+          title="Prediction Engine"
+          description="Configure input features and run live inference against the deployed model."
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            {/* Input form — 3 cols */}
+            <div className="lg:col-span-3 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 {Object.entries(formData).map(([key, val]) => (
-                  <div key={key} className="space-y-1">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                      {key.replace(/_/g, " ")}
-                    </label>
-                    <input
-                      type={typeof val === "number" ? "number" : "text"}
-                      value={val}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          [key]: isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value),
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
+                  <FieldInput
+                    key={key}
+                    label={key.replace(/_/g, " ")}
+                    value={val}
+                    onChange={(v) =>
+                      setFormData((p) => ({
+                        ...p,
+                        [key]: isNaN(Number(v)) || v === "" ? v : Number(v),
+                      }))
+                    }
+                  />
                 ))}
               </div>
               <button
                 onClick={handlePredict}
                 disabled={loading}
-                className="w-full py-3 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg text-sm font-bold text-white"
+                className="w-full h-11 bg-blue-500 hover:bg-blue-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded-xl text-sm font-bold text-white"
               >
-                {loading ? "Running..." : "Execute Inference"}
+                {loading ? "Running inference…" : "Execute Inference"}
               </button>
             </div>
 
-            {/* Result */}
-            <div className="space-y-6">
-              <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6 flex flex-col items-center justify-center min-h-[140px]">
+            {/* Result — 2 cols */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] h-36 flex flex-col items-center justify-center text-center">
                 {prediction ? (
                   <>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-bold">Result</p>
-                    <p className={`text-5xl font-black ${prediction.predictions[0] === 0 ? "text-green-500" : "text-red-500"}`}>
+                    <p className="text-[11px] font-semibold text-white/30 uppercase tracking-[0.15em] mb-2">
+                      Classification Result
+                    </p>
+                    <p className={`text-4xl font-black tracking-tight ${prediction.predictions[0] === 0 ? "text-emerald-400" : "text-red-400"}`}>
                       {prediction.predictions[0] === 0 ? "APPROVED" : "REJECTED"}
                     </p>
-                    <p className="text-xs text-gray-600 font-mono mt-2">{prediction.request_ids?.[0]}</p>
+                    <p className="text-[10px] text-white/20 font-mono mt-2 truncate max-w-[90%]">
+                      {prediction.request_ids?.[0]}
+                    </p>
                   </>
                 ) : (
-                  <p className="text-gray-600 text-sm italic">No prediction yet</p>
+                  <p className="text-sm text-white/20 italic">No prediction yet</p>
                 )}
               </div>
 
-              {/* SHAP chart */}
-              {shapData.length > 0 && (
-                <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-6">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">SHAP Feature Impact</p>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={shapData} layout="vertical">
-                      <XAxis type="number" hide />
-                      <YAxis
-                        dataKey="name"
-                        type="category"
-                        width={90}
-                        tick={{ fill: "#6b7280", fontSize: 10, fontWeight: 700 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "rgba(255,255,255,0.03)" }}
-                        contentStyle={{ background: "#111", border: "1px solid #333", fontSize: 11 }}
-                      />
-                      <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={16}>
-                        {shapData.map((e, i) => (
-                          <Cell key={i} fill={e.val > 0 ? "#22c55e" : "#ef4444"} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold text-white/30 uppercase tracking-[0.15em]">Inference Speed</p>
+                  <p className="text-2xl font-black text-white mt-1">{"< 10ms"}</p>
                 </div>
-              )}
+                <Clock className="w-6 h-6 text-white/10" />
+              </div>
             </div>
           </div>
         </Card>
 
-        {/* ── 2. SHAP Table ────────────────────────────────────────────────── */}
-        {shap && (
-          <Card title="Feature Contributions (SHAP)" subtitle="Positive values push toward approval, negative toward rejection">
-            <div className="overflow-hidden rounded-lg border border-gray-800">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-900 text-gray-500 text-xs uppercase font-bold">
-                  <tr>
-                    <th className="text-left px-4 py-3">Feature</th>
-                    <th className="text-right px-4 py-3">SHAP Value</th>
-                    <th className="text-right px-4 py-3">Impact</th>
+        {/* ── Section 2: SHAP Explanations ──────────────────────────────────── */}
+        <Card
+          title="Feature Explanations (SHAP)"
+          description="Green bars push toward approval · Red bars push toward rejection"
+          badge={shap ? "Live" : undefined}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Chart */}
+            <div className="h-64">
+              {shapData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={shapData} layout="vertical">
+                    <XAxis type="number" hide />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={88}
+                      tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                      contentStyle={{ background: "#111", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11 }}
+                    />
+                    <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={14}>
+                      {shapData.map((e, i) => (
+                        <Cell key={i} fill={e.val > 0 ? "#34d399" : "#f87171"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center border border-white/[0.06] rounded-xl">
+                  <p className="text-sm text-white/20 italic">Run inference to see contributions</p>
+                </div>
+              )}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-hidden rounded-xl border border-white/[0.06]">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                    <th className="text-left px-4 py-3 text-[10px] font-semibold text-white/30 uppercase tracking-wider">Feature</th>
+                    <th className="text-right px-4 py-3 text-[10px] font-semibold text-white/30 uppercase tracking-wider">Value</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {Object.entries(shap)
-                    .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
-                    .map(([key, val]) => (
-                      <tr key={key} className="hover:bg-gray-900/40 transition-colors">
-                        <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{key}</td>
-                        <td className={`px-4 py-2.5 text-right font-bold font-mono text-xs ${val > 0 ? "text-green-500" : "text-red-500"}`}>
-                          {val > 0 ? "+" : ""}{val.toFixed(4)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-gray-800 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${val > 0 ? "bg-green-500" : "bg-red-500"} ml-auto`}
-                                style={{ width: `${Math.min(Math.abs(val) * 1000, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                <tbody className="divide-y divide-white/[0.04]">
+                  {shap ? (
+                    Object.entries(shap)
+                      .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
+                      .map(([key, val]) => (
+                        <tr key={key} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-2.5 font-mono text-white/40 text-[10px]">{key}</td>
+                          <td className={`px-4 py-2.5 text-right font-bold font-mono ${val > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {val > 0 ? "+" : ""}{val.toFixed(4)}
+                          </td>
+                        </tr>
+                      ))
+                  ) : (
+                    <tr>
+                      <td colSpan={2} className="px-4 py-8 text-center text-white/20 italic text-xs">
+                        No data
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-          </Card>
-        )}
+          </div>
+        </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* ── 3. Feedback ────────────────────────────────────────────────── */}
-          <Card title="Ground Truth Feedback" subtitle="Reconcile delayed labels with request IDs">
+        {/* ── Row: Feedback + Alerts ─────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Feedback */}
+          <Card title="Feedback Reconciliation" description="Match delayed ground truth to a request ID">
             <form onSubmit={handleFeedback} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Request ID</label>
-                <input
-                  value={feedbackId}
-                  onChange={(e) => setFeedbackId(e.target.value)}
-                  placeholder="e.g. web-req-1234567890"
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">True Label</label>
+              <FieldInput
+                label="Request ID"
+                value={feedbackId}
+                onChange={setFeedbackId}
+                placeholder="web-req-1234567890"
+                type="text"
+              />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">True Label</label>
                 <select
                   value={feedbackLabel}
                   onChange={(e) => setFeedbackLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full h-10 px-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white/80 focus:outline-none focus:border-blue-500/50 transition-colors"
                 >
                   <option value="0">0 — Approved (No Default)</option>
                   <option value="1">1 — Rejected (Default)</option>
@@ -298,33 +297,40 @@ export default function AppDashboard() {
               </div>
               <button
                 type="submit"
-                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 transition-colors rounded-lg text-sm font-semibold text-white border border-gray-700"
+                className="w-full h-10 bg-white/[0.06] hover:bg-white/[0.09] border border-white/[0.08] transition-colors rounded-lg text-sm font-semibold text-white/70"
               >
                 Submit Feedback
               </button>
               {feedbackMsg && (
-                <p className={`text-xs font-semibold ${feedbackMsg.startsWith("✓") ? "text-green-500" : "text-red-500"}`}>
-                  {feedbackMsg}
-                </p>
+                <div className={`flex items-center gap-2 text-xs font-medium ${feedbackMsg === "success" ? "text-emerald-400" : "text-red-400"}`}>
+                  {feedbackMsg === "success" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                  {feedbackMsg === "success" ? "Feedback logged successfully." : "Failed to log feedback."}
+                </div>
               )}
             </form>
           </Card>
 
-          {/* ── 4. Sentinel Alerts ───────────────────────────────────────── */}
-          <Card title="Drift Sentinel" subtitle="Live KS-Test and Chi-Square alerts">
-            <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+          {/* Sentinel */}
+          <Card title="Drift Sentinel" description="Live KS-Test and Chi-Square alerts" badge={alerts.length > 0 ? `${alerts.length} active` : "Clear"}>
+            <div className="space-y-2.5 max-h-[280px] overflow-y-auto">
               {alerts.length === 0 ? (
-                <div className="text-center py-10 text-gray-600 text-sm italic">
-                  No active drift detected.
+                <div className="h-32 flex flex-col items-center justify-center gap-2 text-white/20">
+                  <CheckCircle2 className="w-6 h-6" />
+                  <span className="text-xs">No active drift detected</span>
                 </div>
               ) : (
                 alerts.slice().reverse().map((a, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/15 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">{a.title}</span>
-                      <span className="text-[10px] text-gray-600 font-mono">{new Date(a.timestamp * 1000).toLocaleTimeString()}</span>
+                  <div key={i} className="p-3.5 rounded-xl bg-yellow-500/[0.04] border border-yellow-500/10">
+                    <div className="flex justify-between items-start gap-2 mb-1.5">
+                      <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-wider flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        {a.title}
+                      </span>
+                      <span className="text-[10px] text-white/20 font-mono shrink-0">
+                        {new Date(a.timestamp * 1000).toLocaleTimeString()}
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-400 leading-relaxed">{a.message}</p>
+                    <p className="text-[11px] text-white/40 leading-relaxed">{a.message}</p>
                   </div>
                 ))
               )}
@@ -332,47 +338,93 @@ export default function AppDashboard() {
           </Card>
         </div>
 
-        {/* ── 5. Dataset Upload ──────────────────────────────────────────── */}
-        <Card title="Dataset Upload" subtitle="CSV only · Max 5 MB · 50k row limit enforced at training time">
-          <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center space-y-3 hover:border-gray-500 transition-colors">
-            <p className="text-sm text-gray-400">Drop a CSV file here or click to browse</p>
-            <input type="file" accept=".csv" onChange={handleFile} className="hidden" id="csv-upload" />
-            <label
-              htmlFor="csv-upload"
-              className="inline-block px-6 py-2 border border-gray-700 rounded-lg text-sm font-semibold text-gray-300 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
-            >
-              Choose File
-            </label>
-            {fileMsg && (
-              <p className={`text-xs font-semibold ${fileMsg.startsWith("✓") ? "text-green-500" : "text-red-500"}`}>
-                {fileMsg}
-              </p>
-            )}
-          </div>
+        {/* ── Dataset Upload ─────────────────────────────────────────────────── */}
+        <Card title="Dataset Upload" description="CSV files only · max 5 MB · 50,000 row limit enforced at training">
+          <label
+            htmlFor="csv-upload"
+            className="flex flex-col items-center justify-center gap-3 h-32 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-white/20 hover:bg-white/[0.02] transition-all"
+          >
+            <div className="text-center">
+              <p className="text-sm font-medium text-white/50">Drop CSV file here or click to browse</p>
+              <p className="text-xs text-white/25 mt-1">Max 5 MB · CSV only</p>
+            </div>
+            <input type="file" accept=".csv" onChange={handleFile} className="sr-only" id="csv-upload" />
+          </label>
+          {fileMsg && (
+            <p className={`mt-3 text-xs font-medium flex items-center gap-1.5 ${fileMsg.startsWith("ok") ? "text-emerald-400" : "text-red-400"}`}>
+              {fileMsg.startsWith("ok") ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+              {fileMsg.split(":")[1]}
+            </p>
+          )}
         </Card>
       </div>
     </div>
   );
 }
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+// ─── Shared components ────────────────────────────────────────────────────────
+
+function Card({
+  title,
+  description,
+  badge,
+  children,
+}: {
+  title: string;
+  description?: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-xl border border-gray-800 bg-gray-900/20 overflow-hidden">
-      <div className="px-6 py-5 border-b border-gray-800">
-        <h2 className="font-bold text-white text-base">{title}</h2>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+    <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+      <div className="px-6 py-5 border-b border-white/[0.06] flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-bold text-white text-[15px]">{title}</h2>
+          {description && <p className="text-xs text-white/30 mt-0.5 leading-relaxed">{description}</p>}
+        </div>
+        {badge && (
+          <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-white/40 uppercase tracking-wider">
+            {badge}
+          </span>
+        )}
       </div>
       <div className="p-6">{children}</div>
     </section>
   );
 }
 
-function Badge({ label, active }: { label: string; active?: boolean }) {
+function FieldInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type,
+}: {
+  label: string;
+  value: any;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-gray-800 text-xs font-semibold">
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-green-500" : "bg-gray-600"}`} />
-      <span className={active ? "text-gray-300" : "text-gray-600"}>{label}</span>
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">{label}</label>
+      <input
+        type={type ?? (typeof value === "number" ? "number" : "text")}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full h-10 px-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white/80 font-mono focus:outline-none focus:border-blue-500/50 transition-colors placeholder:text-white/20"
+      />
+    </div>
+  );
+}
+
+function StatusPill({ label, active }: { label: string; active?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] text-xs font-medium">
+      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-white/20"}`} />
+      <span className={active ? "text-white/60" : "text-white/25"}>{label}</span>
     </div>
   );
 }

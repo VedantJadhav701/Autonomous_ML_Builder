@@ -2,13 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background: #000000;
-  color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
+/* Reset browser default link color */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
 }
