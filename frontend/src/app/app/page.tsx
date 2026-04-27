@@ -36,7 +36,9 @@ export default function AppDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState<"success" | "error" | null>(null);
   const [loading, setLoading] = useState(false);
   const [fileMsg, setFileMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"prediction" | "shap" | "feedback" | "alerts" | "upload">("prediction");
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"prediction" | "shap" | "feedback" | "alerts" | "upload">("upload");
 
   /* ── polling ─────────────────────────────────────────────────── */
   const poll = useCallback(async () => {
@@ -78,13 +80,37 @@ export default function AppDashboard() {
     } catch { setFeedbackMsg("error"); }
   };
 
-  /* ── file upload ─────────────────────────────────────────────── */
+  /* ── file upload + CSV parse ─────────────────────────────────── */
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!f.name.endsWith(".csv")) return setFileMsg({ ok: false, text: "Only CSV files are accepted." });
     if (f.size > 5 * 1024 * 1024) return setFileMsg({ ok: false, text: "File exceeds the 5 MB limit." });
-    setFileMsg({ ok: true, text: `${f.name} — ${(f.size / 1024).toFixed(0)} KB ready` });
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return setFileMsg({ ok: false, text: "CSV has no data rows." });
+      const headers = lines[0].split(",").map(h => h.trim().replace(/"|'/g, ""));
+      const rows = lines.slice(1, 51).map(line => {
+        const vals = line.split(",");
+        return Object.fromEntries(headers.map((h, i) => [h, (vals[i] || "").trim().replace(/"|'/g, "")]));
+      });
+      setCsvHeaders(headers);
+      setCsvRows(rows);
+      setFileMsg({ ok: true, text: `${f.name} — ${rows.length} rows loaded (showing first 50)` });
+    };
+    reader.readAsText(f);
+  };
+
+  const handleLoadRow = (row: Record<string, string>) => {
+    const mapped: Record<string, any> = {};
+    Object.entries(row).forEach(([k, v]) => {
+      mapped[k] = isNaN(Number(v)) || v === "" ? v : Number(v);
+    });
+    setFormData(prev => ({ ...prev, ...mapped }));
+    setActiveTab("prediction");
   };
 
   const shapData = shap
@@ -163,8 +189,9 @@ export default function AppDashboard() {
           <Panel title="Feature Explanations (SHAP)" subtitle="Green bars push toward approval · Red bars push toward rejection · Run inference first to populate.">
             {shapData.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-                <div style={{ height: 320 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                {/* Fixed pixel height on wrapper — fixes Recharts -1 warning */}
+                <div style={{ width: "100%", height: 320, minWidth: 0 }}>
+                  <ResponsiveContainer width="100%" height={320}>
                     <BarChart data={shapData} layout="vertical">
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" width={95} tick={{ fill: "rgba(255,255,255,0.38)", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
@@ -244,26 +271,63 @@ export default function AppDashboard() {
 
         {/* ── PANEL: Upload ── */}
         {activeTab === "upload" && (
-          <Panel title="Dataset Upload" subtitle="Upload a CSV dataset for inspection. Max 5 MB · 50,000 row limit enforced at training time.">
-            <div style={{ maxWidth: 560 }}>
+          <Panel
+            title="Dataset Upload"
+            subtitle="Upload a CSV — rows are parsed client-side. Click any row to load it into the Inference engine."
+            badge={csvRows.length > 0 ? `${csvRows.length} rows loaded` : undefined}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               <DropZone onFile={handleFile} />
               {fileMsg && (
-                <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 600, color: fileMsg.ok ? C.green : C.red }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 600, color: fileMsg.ok ? C.green : C.red }}>
                   {fileMsg.ok ? <CheckCircle2 style={{ width: 16, height: 16 }} /> : <XCircle style={{ width: 16, height: 16 }} />}
                   {fileMsg.text}
                 </div>
               )}
-              <div style={{ marginTop: 24, padding: 20, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Constraints</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {[{ k: "Format", v: "CSV only" }, { k: "Max File Size", v: "5 MB" }, { k: "Max Rows", v: "50,000" }, { k: "Encoding", v: "UTF-8" }].map(c => (
-                    <div key={c.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.muted }}>{c.k}</span>
-                      <span style={{ fontWeight: 600, color: C.text }}>{c.v}</span>
-                    </div>
-                  ))}
+
+              {csvRows.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>
+                    👆 Click any row to load it into the <strong style={{ color: "#fff" }}>Inference Engine</strong> and run a prediction.
+                  </p>
+                  <div style={{ overflowX: "auto", borderRadius: 14, border: `1px solid ${C.border}` }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, whiteSpace: "nowrap" }}>
+                      <thead>
+                        <tr style={{ backgroundColor: "rgba(255,255,255,0.03)", borderBottom: `1px solid ${C.border}` }}>
+                          <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>#</th>
+                          {csvHeaders.slice(0, 8).map(h => (
+                            <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>{h}</th>
+                          ))}
+                          {csvHeaders.length > 8 && <th style={{ padding: "10px 14px", color: C.dim, fontSize: 10 }}>+{csvHeaders.length - 8} more</th>}
+                          <th style={{ padding: "10px 14px" }} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvRows.slice(0, 20).map((row, i) => (
+                          <CsvRow key={i} row={row} headers={csvHeaders} index={i + 1} onLoad={() => handleLoadRow(row)} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {csvRows.length > 20 && (
+                    <p style={{ fontSize: 12, color: C.dim, textAlign: "center" }}>Showing first 20 of {csvRows.length} rows</p>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {csvRows.length === 0 && (
+                <div style={{ padding: 20, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14, marginTop: 0 }}>Requirements</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[{ k: "Format", v: "CSV only" }, { k: "Max Size", v: "5 MB" }, { k: "Max Rows", v: "50,000" }, { k: "Preview", v: "First 20 rows shown" }].map(c => (
+                      <div key={c.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                        <span style={{ color: C.muted }}>{c.k}</span>
+                        <span style={{ fontWeight: 600, color: C.text }}>{c.v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </Panel>
         )}
@@ -457,3 +521,26 @@ function StatusPill({ label, active }: { label: string; active?: boolean }) {
     </div>
   );
 }
+
+function CsvRow({ row, headers, index, onLoad }: { row: Record<string, string>; headers: string[]; index: number; onLoad: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <tr onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", backgroundColor: hov ? "rgba(59,130,246,0.06)" : "transparent", transition: "background 0.15s", cursor: "pointer" }}
+      onClick={onLoad}>
+      <td style={{ padding: "9px 14px", color: C.dim, fontFamily: "monospace" }}>{index}</td>
+      {headers.slice(0, 8).map(h => (
+        <td key={h} style={{ padding: "9px 14px", color: hov ? "rgba(255,255,255,0.8)" : C.muted, fontFamily: "monospace", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>
+          {row[h] ?? "—"}
+        </td>
+      ))}
+      {headers.length > 8 && <td style={{ padding: "9px 14px", color: C.dim }}>…</td>}
+      <td style={{ padding: "9px 14px", textAlign: "right" }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: hov ? C.blue : C.dim, textTransform: "uppercase", letterSpacing: "0.1em", transition: "color 0.15s" }}>
+          {hov ? "Load →" : ""}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
