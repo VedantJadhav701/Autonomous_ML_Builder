@@ -24,6 +24,9 @@ class SystemConfig:
     FLOAT_TYPE = "float32"
     INT_TYPE = "int32"
     
+    # LLM Guardrails
+    ALLOWED_VALIDATION_STRATEGIES = ["stratified", "time_series", "kfold"]
+    
     @classmethod
     def get_dict(cls) -> Dict[str, Any]:
         return {k: v for k, v in cls.__dict__.items() if not k.startswith("__")}

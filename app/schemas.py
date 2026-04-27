@@ -18,3 +18,7 @@ class PredictionResponse(BaseModel):
 class ExplainResponse(BaseModel):
     explainability: List[Dict[str, Any]]
     message: str = "Success"
+
+class FeedbackRequest(BaseModel):
+    truths: List[Any]
+    preds: List[Any]

@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
 import pandas as pd
-from app.schemas import PredictionRequest, PredictionResponse, ExplainResponse
+from app.schemas import PredictionRequest, PredictionResponse, ExplainResponse, FeedbackRequest
 from src.tracker import ModelArtifactTracker
 from src.monitoring.logger import get_logger
 from src.monitoring.drift_detector import DriftDetector
+from src.monitoring.performance import PerformanceTracker
 
 logger = get_logger(__name__)
 
@@ -49,6 +50,11 @@ async def explain(request: PredictionRequest):
         input_data = [item.model_dump() for item in request.data]
         df = pd.DataFrame(input_data)
         
+        # scalability guardrail: hard cap explain payload to max 50 rows to prevent OOM
+        if len(df) > 50:
+            logger.warning("Explain payload exceeded hard limit (50). Truncating to prevent memory exhaustion.")
+            df = df.head(50)
+        
         preprocessor = PIPELINE.named_steps.get('preprocessor')
         X_transformed = preprocessor.transform(df)
         # Convert to dense if sparse to run explainability
@@ -69,6 +75,16 @@ async def explain(request: PredictionRequest):
         return ExplainResponse(explainability=explanations)
     except Exception as e:
         logger.error(f"Explain error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/feedback")
+async def feedback(request: FeedbackRequest):
+    """Ingests continuous ground truths and forces performance recalculations."""
+    try:
+        PerformanceTracker.log_feedback(request.truths, request.preds)
+        return {"status": "Feedback securely logged and evaluated."}
+    except Exception as e:
+        logger.error(f"Feedback error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/health")

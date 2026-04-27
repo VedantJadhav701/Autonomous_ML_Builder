@@ -42,9 +42,16 @@ class LLMPipelinePlanner:
 
     @staticmethod
     def apply_llm_suggestions(json_suggestion: str) -> dict:
-        """Parses and validates LLM constraint-bound suggestions."""
+        """Parses and validates LLM constraint-bound suggestions securely."""
         try:
             suggestion = json.loads(json_suggestion)
+            
+            # Guardrail: Revert unsupported validation patterns
+            v_strategy = suggestion.get("validation_strategy")
+            if v_strategy and v_strategy not in SystemConfig.ALLOWED_VALIDATION_STRATEGIES:
+                logger.warning(f"LLM hallucinated illegal validation '{v_strategy}'. Reverting to safe defaults.")
+                suggestion["validation_strategy"] = "stratified"
+                
             logger.info("Successfully ingested LLM-driven architectural suggestions.")
             return suggestion
         except Exception as e:
