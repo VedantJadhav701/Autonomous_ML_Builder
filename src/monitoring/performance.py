@@ -1,10 +1,13 @@
 import os
 import json
 import numpy as np
-from typing import List
+import time
+from typing import List, Any
 from sklearn.metrics import accuracy_score, f1_score
 from src.monitoring.logger import get_logger
 from src.monitoring.alerting import AlertManager
+from src.monitoring.drift_detector import DriftDetector
+from typing import List, Any
 
 logger = get_logger(__name__)
 
@@ -13,6 +16,7 @@ class PerformanceTracker:
     
     FEEDBACK_FILE = "models/performance_log.json"
     STAGING_FILE = "models/prediction_staging.json"
+    ANALYSIS_LOG = "models/analysis_log.json"
     
     @classmethod
     def stage_predictions(cls, request_ids: List[str], predictions: List[Any]) -> None:
@@ -90,8 +94,33 @@ class PerformanceTracker:
             
             logger.info(f"Running Performance Metrics (N={len(y_true)}): Accuracy={acc:.4f}, F1={f1:.4f}")
             
+            # Log correlation between drift and performance
+            cls._log_correlation(float(acc), float(f1))
+
             if f1 < 0.5:
                 msg = f"Running F1-Score crashed below 0.5 (Current={f1:.4f}). Model retraining strongly advised!"
                 AlertManager.send_alert("Model Performance Alert", msg, level="CRITICAL")
         except Exception as e:
             logger.error(f"Failed to calculate running metrics: {e}")
+
+    @classmethod
+    def _log_correlation(cls, acc: float, f1: float) -> None:
+        """Saves unified snapshot of system intelligence (Drift vs. Performance)."""
+        snapshot = {
+            "timestamp": time.time(),
+            "performance": {"accuracy": acc, "f1": f1},
+            "drift_p_values": DriftDetector.latest_p_values
+        }
+        
+        history = []
+        if os.path.exists(cls.ANALYSIS_LOG):
+            with open(cls.ANALYSIS_LOG, "r") as f:
+                history = json.load(f)
+        
+        history.append(snapshot)
+        history = history[-100:] # Keep last 100 snapshots
+        
+        with open(cls.ANALYSIS_LOG, "w") as f:
+            json.dump(history, f, indent=4)
+        
+        logger.info(f"Drift-Performance correlation snapshot saved to {cls.ANALYSIS_LOG}")

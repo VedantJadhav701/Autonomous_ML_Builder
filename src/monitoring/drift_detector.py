@@ -13,6 +13,7 @@ class DriftDetector:
     """Calculates dataset baselines during training and monitors drift during inference via KS Tests."""
     
     BASELINE_FILE = "models/drift_baselines.json"
+    latest_p_values = {} # Feature -> p-value mapping for correlation analysis
     
     @classmethod
     def calculate_baselines(cls, df: pd.DataFrame) -> None:
@@ -62,6 +63,7 @@ class DriftDetector:
                 
                 if len(incoming_samples) > 0 and len(baseline_samples) > 0:
                     stat, p_value = ks_2samp(baseline_samples, incoming_samples)
+                    cls.latest_p_values[col] = float(p_value)
                     # p-value < 0.05 implies distributions are significantly different
                     if p_value < 0.05:
                         msg = f"Feature '{col}' failed KS-Test (p-value={p_value:.4f}). Distribution shift detected."
@@ -82,6 +84,7 @@ class DriftDetector:
                         exp.append((freq * n) + 1e-5)
                     
                     stat, p_value = chisquare(f_obs=obs, f_exp=exp)
+                    cls.latest_p_values[col] = float(p_value)
                     if p_value < 0.05:
                         msg = f"Categorical Feature '{col}' failed Chi-Square Test (p-value={p_value:.4f}). Frequency shift detected."
                         AlertManager.send_alert("Categorical Drift Alert", msg)

@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 import pandas as pd
 import uuid
+import hashlib
+import json as json_lib
 from app.schemas import PredictionRequest, PredictionResponse, ExplainResponse, FeedbackRequest
 from src.tracker import ModelArtifactTracker
 from src.monitoring.logger import get_logger
@@ -20,6 +22,9 @@ except Exception as e:
     PIPELINE = None
     EXPLAINER = None
 
+
+EXPLAIN_CACHE = {} # Hash -> Explanations cache
+MAX_CACHE_SIZE = 100
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -62,6 +67,12 @@ async def explain(request: PredictionRequest):
         
     try:
         input_data = [item.model_dump() for item in request.data]
+        # Data hash for caching
+        payload_hash = hashlib.md5(json_lib.dumps(input_data, sort_keys=True).encode()).hexdigest()
+        if payload_hash in EXPLAIN_CACHE:
+            logger.info("Serving SHAP explanation from memory cache.")
+            return ExplainResponse(explainability=EXPLAIN_CACHE[payload_hash])
+
         df = pd.DataFrame(input_data)
         
         # scalability guardrail: hard cap explain payload to max 50 rows to prevent OOM
@@ -85,6 +96,11 @@ async def explain(request: PredictionRequest):
             # Map contribution to feature
             contribs = {feature_names[j]: float(row_shap[j]) for j in range(len(feature_names))}
             explanations.append(contribs)
+            
+        # Update cache
+        if len(EXPLAIN_CACHE) >= MAX_CACHE_SIZE:
+            EXPLAIN_CACHE.pop(next(iter(EXPLAIN_CACHE)))
+        EXPLAIN_CACHE[payload_hash] = explanations
             
         return ExplainResponse(explainability=explanations)
     except Exception as e:
