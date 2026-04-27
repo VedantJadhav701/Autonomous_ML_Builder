@@ -46,7 +46,8 @@ class HyperparameterTuner:
             validation_strat = llm_overrides.get("validation_strategy", "auto")
             if validation_strat == "time_series":
                 cv = TimeSeriesSplit(n_splits=3)
-            elif is_regression:
+            elif is_regression or y.nunique() > 30:
+                # Hard guard: never use StratifiedKFold for continuous targets
                 cv = KFold(n_splits=3, shuffle=True, random_state=42)
             else:
                 cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
@@ -58,6 +59,7 @@ class HyperparameterTuner:
                 return scores.mean()
             except Exception:
                 return -999.0 if is_regression else 0.0
+
 
         study = optuna.create_study(direction="maximize")
         study.optimize(

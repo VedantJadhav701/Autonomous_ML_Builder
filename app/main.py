@@ -70,23 +70,21 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         from src.data_profiler import DataProfiler
         from src.config import SystemConfig
 
-        df = pd.read_csv(io.BytesIO(csv_bytes))
-        if len(df) > SystemConfig.MAX_ROWS:
-            df = df.head(SystemConfig.MAX_ROWS)
+        df_raw = pd.read_csv(io.BytesIO(csv_bytes))
+        if len(df_raw) > SystemConfig.MAX_ROWS:
+            df_raw = df_raw.head(SystemConfig.MAX_ROWS)
             logger.warning(f"Dataset truncated to {SystemConfig.MAX_ROWS} rows.")
 
-        if target_col not in df.columns:
+        if target_col not in df_raw.columns:
             raise ValueError(f"Target column '{target_col}' not found in CSV.")
 
-        X, y, feature_layout = DataProfiler.profile_and_prepare(df, target_col)
-        n_samples, n_features = X.shape
-        logger.info(f"Profiled: {n_samples} rows × {n_features} features")
-
-        # ── Auto-detect task type ────────────────────────────────────────────
-        # Override user selection if data clearly says otherwise
-        n_unique = y.nunique()
+        # ── Auto-detect task type from RAW data (before dtype mutation) ──────
+        raw_target = df_raw[target_col]
+        n_unique_raw = raw_target.nunique()
+        n_total_raw  = len(raw_target)
         is_continuous = (
-            pd.api.types.is_float_dtype(y) and n_unique > max(20, 0.05 * n_samples)
+            pd.api.types.is_float_dtype(raw_target)
+            and n_unique_raw > max(20, 0.05 * n_total_raw)
         )
         if task_type == "auto":
             is_regression = is_continuous
@@ -95,7 +93,14 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         else:
             is_regression = False
 
-        logger.info(f"Task type resolved: {'regression' if is_regression else 'classification'} (unique targets: {n_unique})")
+        logger.info(
+            f"Task type resolved: {'REGRESSION' if is_regression else 'CLASSIFICATION'} "
+            f"(dtype={raw_target.dtype}, unique={n_unique_raw}/{n_total_raw})"
+        )
+
+        X, y, feature_layout = DataProfiler.profile_and_prepare(df_raw, target_col)
+        n_samples, n_features = X.shape
+        logger.info(f"Profiled: {n_samples} rows × {n_features} features")
 
         # ── Stage 2: Feature Engineering ────────────────────────────────────
         _set_stage(job_id, 1)
