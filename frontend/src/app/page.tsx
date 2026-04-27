@@ -1,222 +1,140 @@
 import Link from "next/link";
-import { ArrowRight, Github } from "lucide-react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 
 const FEATURES = [
-  {
-    icon: "⚙️",
-    title: "Adaptive Pipeline Engine",
-    desc: "Auto-selects between LogisticRegression, RandomForest, and LightGBM based on dataset size and cardinality. Cardinality-aware feature encoding built in.",
-  },
-  {
-    icon: "📊",
-    title: "Real-Time Drift Detection",
-    desc: "Kolmogorov-Smirnov test for numerical features + Chi-Square for categorical. Rate-limited alerts fire per request — no noise.",
-  },
-  {
-    icon: "⚡",
-    title: "Sub-10ms Inference",
-    desc: "Unified joblib pipelines pre-loaded at boot. Zero cold-start penalty. P95 under 10ms on shared CPU cores.",
-  },
-  {
-    icon: "🧠",
-    title: "Operationalized SHAP",
-    desc: "MD5-cached SHAP explanations served per request. Handles binary classification multi-dimensional arrays. Hard 50-row OOM guard.",
-  },
-  {
-    icon: "🔁",
-    title: "Async Feedback Loop",
-    desc: "Delayed ground-truth reconciliation via request IDs. Continuously evaluates live F1 scores without blocking inference.",
-  },
-  {
-    icon: "🛡️",
-    title: "LLM Structural Planner",
-    desc: "Guardrailed LLM override layer for architectural decisions. Every decision logged with a rationale — fully auditable.",
-  },
+  { icon: "⚙️", title: "Adaptive Pipeline Engine", desc: "Auto-selects between LogisticRegression, RandomForest, and LightGBM based on dataset size and cardinality. Cardinality-aware encoding built in." },
+  { icon: "📊", title: "Real-Time Drift Detection", desc: "Kolmogorov-Smirnov for numerical + Chi-Square for categorical. Rate-limited alerts fire per request — no noise." },
+  { icon: "⚡", title: "Sub-10ms Inference", desc: "Unified joblib pipelines pre-loaded at boot. Zero cold-start penalty. P95 under 10ms on shared CPU cores." },
+  { icon: "🧠", title: "Operationalized SHAP", desc: "MD5-cached SHAP explanations per request. Handles binary classification multi-dimensional arrays with a hard 50-row OOM guard." },
+  { icon: "🔁", title: "Async Feedback Loop", desc: "Delayed ground-truth reconciliation via request IDs. Continuously evaluates live F1 scores without blocking inference." },
+  { icon: "🛡️", title: "LLM Structural Planner", desc: "Guardrailed LLM override layer for architecture decisions. Every decision logged with a rationale — fully auditable." },
 ];
 
-const ARCH_NODES = [
-  "User",
-  "FastAPI",
-  "Pipeline",
-  "Model",
-  "Drift Monitor",
-  "Feedback Log",
-  "Alerts",
-];
+const ARCH_NODES = ["User", "FastAPI", "Pipeline", "Model", "Drift Monitor", "Feedback Log", "Alerts"];
 
 const ENDPOINTS = [
-  { method: "POST", path: "/predict", desc: "Batch inference — returns class predictions + request IDs" },
-  { method: "POST", path: "/explain", desc: "SHAP feature contributions (cached, hard-capped at 50 rows)" },
+  { method: "POST", path: "/predict",  desc: "Batch inference — class predictions + request IDs" },
+  { method: "POST", path: "/explain",  desc: "SHAP feature contributions (cached, max 50 rows)" },
   { method: "POST", path: "/feedback", desc: "Reconcile delayed ground truth labels by request ID" },
-  { method: "GET",  path: "/health",  desc: "Pipeline + explainer readiness check" },
-  { method: "GET",  path: "/alerts",  desc: "Drift alert history from the Sentinel monitor" },
+  { method: "GET",  path: "/health",   desc: "Pipeline + explainer readiness check" },
+  { method: "GET",  path: "/alerts",   desc: "Drift alert history from Sentinel monitor" },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* ── Navbar ───────────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 inset-x-0 z-50 h-16 border-b border-white/[0.06] bg-[#0a0a0a]/80 backdrop-blur-xl">
+    <div className="min-h-screen" style={{ backgroundColor: "#0a0a0a", color: "#ffffff" }}>
+
+      {/* ── Navbar ── */}
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, height: 64, borderBottom: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(10,10,10,0.9)", backdropFilter: "blur(16px)" }}>
         <div className="max-w-5xl mx-auto px-6 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-blue-500 flex items-center justify-center text-[10px] font-black text-white tracking-tight">
-              ML
-            </div>
-            <span className="font-semibold text-sm text-white/90 tracking-tight">
-              Autonomous ML Builder
-            </span>
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex items-center justify-center rounded-lg text-white font-black text-xs" style={{ width: 32, height: 32, backgroundColor: "#3b82f6" }}>ML</div>
+            <span className="font-semibold text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>Autonomous ML Builder</span>
           </Link>
           <div className="flex items-center gap-3">
-            <a
-              href="https://github.com/VedantJadhav701/Autonomous_ML_Builder"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/90 transition-colors"
-            >
-              <Github className="w-4 h-4" />
-              GitHub
+            <a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm transition-colors" style={{ color: "rgba(255,255,255,0.45)" }}>
+              <ExternalLink className="w-4 h-4" /> GitHub
             </a>
-            <Link
-              href="/app"
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-400 transition-colors text-white text-sm font-semibold rounded-lg"
-            >
+            <Link href="/app" className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style={{ backgroundColor: "#3b82f6" }}>
               Launch App
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section className="pt-40 pb-32 px-6">
-        <div className="max-w-5xl mx-auto space-y-8">
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-white/40 border border-white/10 px-3 py-1.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+      {/* ── Hero ── */}
+      <section className="px-6" style={{ paddingTop: 160, paddingBottom: 96 }}>
+        <div className="max-w-5xl mx-auto" style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+          
+          <div className="inline-flex items-center gap-2 rounded-full text-xs font-medium" style={{ padding: "6px 14px", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", width: "fit-content" }}>
+            <span className="inline-block rounded-full" style={{ width: 6, height: 6, backgroundColor: "#22c55e" }} />
             v1.0.0 — Production Release
           </div>
 
-          <div className="space-y-5 max-w-3xl">
-            <h1 className="text-5xl md:text-[64px] font-black tracking-tight leading-[1.05] text-white">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720 }}>
+            <h1 className="font-black tracking-tight" style={{ fontSize: 56, lineHeight: 1.05, color: "#ffffff" }}>
               Autonomous ML Builder
             </h1>
-            <p className="text-lg md:text-xl text-white/50 font-normal leading-relaxed max-w-2xl">
-              Production-grade ML lifecycle system with real-time drift detection,
-              SHAP explainability, and auto pipeline design. Built for
-              resource-constrained environments.
+            <p style={{ fontSize: 18, lineHeight: 1.7, color: "rgba(255,255,255,0.5)", maxWidth: 600 }}>
+              Production-grade ML lifecycle system with real-time drift detection, SHAP explainability, and auto pipeline design. Built for resource-constrained environments.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/app"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-400 transition-colors text-white text-sm font-semibold rounded-xl"
-            >
-              Launch App
-              <ArrowRight className="w-4 h-4" />
+            <Link href="/app" className="inline-flex items-center gap-2 font-semibold text-sm text-white rounded-xl transition-colors" style={{ padding: "14px 24px", backgroundColor: "#3b82f6" }}>
+              Launch App <ArrowRight className="w-4 h-4" />
             </Link>
-            <a
-              href="https://github.com/VedantJadhav701/Autonomous_ML_Builder"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-colors text-white/70 hover:text-white text-sm font-semibold rounded-xl"
-            >
-              <Github className="w-4 h-4" />
-              View Source
+            <a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-semibold text-sm rounded-xl transition-colors" style={{ padding: "14px 24px", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.6)" }}>
+              <ExternalLink className="w-4 h-4" /> View Source
             </a>
           </div>
 
-          <div className="pt-4 border-t border-white/[0.06] grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { val: "< 10ms", label: "P95 Latency" },
-              { val: "< 1 GB", label: "RAM Footprint" },
-              { val: "50,000",  label: "Max Dataset Rows" },
-              { val: "KS + χ²", label: "Drift Detection Tests" },
-            ].map((s) => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6" style={{ paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            {[{ val: "< 10ms", label: "P95 Latency" }, { val: "< 1 GB", label: "RAM Footprint" }, { val: "50,000", label: "Max Dataset Rows" }, { val: "KS + χ²", label: "Drift Tests" }].map(s => (
               <div key={s.label}>
-                <p className="text-2xl font-black text-white tracking-tight">{s.val}</p>
-                <p className="text-xs text-white/30 mt-1 uppercase tracking-wider font-medium">{s.label}</p>
+                <p className="font-black tracking-tight" style={{ fontSize: 24, color: "#ffffff" }}>{s.val}</p>
+                <p className="font-medium uppercase tracking-wider" style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>{s.label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Features ─────────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6 border-t border-white/[0.06]">
-        <div className="max-w-5xl mx-auto space-y-10">
+      {/* ── Features ── */}
+      <section className="px-6" style={{ paddingTop: 80, paddingBottom: 80, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="max-w-5xl mx-auto" style={{ display: "flex", flexDirection: "column", gap: 40 }}>
           <div>
-            <p className="text-xs font-semibold text-blue-500 uppercase tracking-[0.15em] mb-3">Capabilities</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">
-              What this system does
-            </h2>
+            <p className="font-semibold uppercase" style={{ fontSize: 11, color: "#3b82f6", letterSpacing: "0.15em", marginBottom: 12 }}>Capabilities</p>
+            <h2 className="font-black tracking-tight" style={{ fontSize: 36, color: "#ffffff" }}>What this system does</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-6 space-y-3 hover:bg-white/[0.05] hover:border-white/10 transition-all duration-200"
-              >
-                <span className="text-2xl">{f.icon}</span>
-                <h3 className="font-bold text-white text-sm leading-snug">{f.title}</h3>
-                <p className="text-sm text-white/40 leading-relaxed">{f.desc}</p>
+            {FEATURES.map(f => (
+              <div key={f.title} style={{ borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+                <span style={{ fontSize: 24 }}>{f.icon}</span>
+                <h3 className="font-bold" style={{ fontSize: 14, color: "#ffffff", lineHeight: 1.4 }}>{f.title}</h3>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.65 }}>{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Architecture ─────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6 border-t border-white/[0.06]">
-        <div className="max-w-5xl mx-auto space-y-10">
+      {/* ── Architecture ── */}
+      <section className="px-6" style={{ paddingTop: 80, paddingBottom: 80, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="max-w-5xl mx-auto" style={{ display: "flex", flexDirection: "column", gap: 40 }}>
           <div>
-            <p className="text-xs font-semibold text-blue-500 uppercase tracking-[0.15em] mb-3">System Design</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">Architecture</h2>
+            <p className="font-semibold uppercase" style={{ fontSize: 11, color: "#3b82f6", letterSpacing: "0.15em", marginBottom: 12 }}>System Design</p>
+            <h2 className="font-black tracking-tight" style={{ fontSize: 36, color: "#ffffff" }}>Architecture</h2>
           </div>
 
-          {/* Flow diagram */}
-          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-6 md:p-8 overflow-x-auto">
-            <div className="flex items-center gap-3 min-w-max">
+          <div style={{ borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", padding: 28, overflowX: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: "max-content" }}>
               {ARCH_NODES.map((node, i) => (
-                <div key={node} className="flex items-center gap-3">
-                  <div
-                    className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap ${
-                      node === "User"
-                        ? "bg-blue-500 text-white"
-                        : node === "Drift Monitor"
-                        ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/20"
-                        : node === "Alerts"
-                        ? "bg-red-500/20 text-red-400 border border-red-500/20"
-                        : "bg-white/5 text-white/60 border border-white/10"
-                    }`}
-                  >
+                <div key={node} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+                    ...(node === "User" ? { backgroundColor: "#3b82f6", color: "#ffffff" }
+                      : node === "Drift Monitor" ? { backgroundColor: "rgba(234,179,8,0.12)", color: "#eab308", border: "1px solid rgba(234,179,8,0.2)" }
+                      : node === "Alerts" ? { backgroundColor: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }
+                      : { backgroundColor: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" })
+                  }}>
                     {node}
                   </div>
-                  {i < ARCH_NODES.length - 1 && (
-                    <span className="text-white/20 text-sm">→</span>
-                  )}
+                  {i < ARCH_NODES.length - 1 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 16 }}>→</span>}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* API reference */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {ENDPOINTS.map((ep) => (
-              <div
-                key={ep.path}
-                className="flex items-start gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] transition-colors"
-              >
-                <span
-                  className={`shrink-0 text-[10px] font-black px-2 py-1 rounded-md ${
-                    ep.method === "POST"
-                      ? "bg-blue-500/15 text-blue-400"
-                      : "bg-emerald-500/15 text-emerald-400"
-                  }`}
-                >
+            {ENDPOINTS.map(ep => (
+              <div key={ep.path} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: 16, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, padding: "4px 8px", borderRadius: 6, ...(ep.method === "POST" ? { backgroundColor: "rgba(59,130,246,0.15)", color: "#60a5fa" } : { backgroundColor: "rgba(16,185,129,0.15)", color: "#34d399" }) }}>
                   {ep.method}
                 </span>
                 <div>
-                  <code className="text-sm font-mono text-white/80">{ep.path}</code>
-                  <p className="text-xs text-white/30 mt-1 leading-relaxed">{ep.desc}</p>
+                  <code style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>{ep.path}</code>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 2, lineHeight: 1.5 }}>{ep.desc}</p>
                 </div>
               </div>
             ))}
@@ -224,48 +142,32 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA ──────────────────────────────────────────────────────────────── */}
-      <section className="py-24 px-6 border-t border-white/[0.06]">
+      {/* ── CTA ── */}
+      <section className="px-6" style={{ paddingTop: 80, paddingBottom: 80, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="max-w-5xl mx-auto">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-12 md:p-16 text-center space-y-6">
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">
-              Ready to test the system?
-            </h2>
-            <p className="text-white/40 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-              Run live inference, inspect SHAP explanations, inject drift signals,
-              and monitor the full ML lifecycle in real time.
+          <div className="text-center" style={{ borderRadius: 24, border: "1px solid rgba(255,255,255,0.1)", background: "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", padding: "64px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+            <h2 className="font-black tracking-tight" style={{ fontSize: 36, color: "#ffffff" }}>Ready to test the system?</h2>
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.4)", maxWidth: 480, lineHeight: 1.7 }}>
+              Run live inference, inspect SHAP explanations, inject drift signals, and monitor the full ML lifecycle.
             </p>
-            <Link
-              href="/app"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-blue-500 hover:bg-blue-400 transition-colors text-white text-sm font-bold rounded-xl"
-            >
+            <Link href="/app" className="inline-flex items-center gap-2 font-bold text-sm text-white rounded-xl" style={{ padding: "16px 32px", backgroundColor: "#3b82f6" }}>
               Launch App <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ───────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-white/[0.06] py-8 px-6">
+      {/* ── Footer ── */}
+      <footer className="px-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 32, paddingBottom: 32 }}>
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-white/30">
-            Autonomous ML Builder · v1.0.0 · MIT License · Built by Vedant Jadhav
-          </p>
-          <div className="flex items-center gap-6 text-sm text-white/30">
-            <a
-              href="https://github.com/VedantJadhav701/Autonomous_ML_Builder"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white/70 transition-colors"
-            >
-              GitHub
-            </a>
-            <Link href="/app" className="hover:text-white/70 transition-colors">
-              Dashboard
-            </Link>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Autonomous ML Builder · v1.0.0 · MIT License · Built by Vedant Jadhav</p>
+          <div className="flex items-center gap-6">
+            <a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>GitHub</a>
+            <Link href="/app" style={{ fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Dashboard</Link>
           </div>
         </div>
       </footer>
+
     </div>
   );
 }
