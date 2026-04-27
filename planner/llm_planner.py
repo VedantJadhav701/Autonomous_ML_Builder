@@ -1,6 +1,6 @@
 import json
 from src.config import SystemConfig
-from src.logger import get_logger
+from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -12,23 +12,32 @@ class LLMPipelinePlanner:
     """
     
     @staticmethod
-    def generate_tuning_prompt(dataset_shape: tuple) -> str:
+    def generate_tuning_prompt(dataset_shape: tuple, feature_layout: dict) -> str:
         """
         Constructs a prompt context informing an LLM agent of current system constraints
-        so it can dynamically propose Optuna parameter grids.
+        so it can dynamically propose Optuna parameter grids or validation overrides.
         """
         constraints = SystemConfig.get_dict()
         prompt = f"""
         You are an Autonomous Pipeline Planner agent. 
         The current dataset shape is {dataset_shape}.
+        The detected automated feature layout is: {json.dumps(feature_layout)}
+        
         The strict system constraints are:
         {json.dumps(constraints, indent=2)}
         
-        Given these constraints, suggest an optimal hyperparameter grid for a LightGBM
-        model that guarantees training finishes in under {constraints.get('TRAINING_TIMEOUT_SEC', 300)} seconds.
-        Return ONLY valid Python dictionary code.
+        Given these constraints, suggest an optimal hyperparameter grid for a LightGBM model.
+        Also, if the feature layout indicates chronological sequences (e.g., date features), 
+        override the validation strategy by setting "validation_strategy": "time_series".
+        
+        Return ONLY valid Python JSON dictionary code.
+        Example: 
+        {{
+            "hyperparameters": {{"model__num_leaves": [31, 63], "model__learning_rate": [0.01, 0.1]}},
+            "validation_strategy": "time_series" 
+        }}
         """
-        logger.info("Generated LLM contextual prompt for autonomous tuning.")
+        logger.info("Generated LLM contextual prompt for autonomous structural tuning.")
         return prompt
 
     @staticmethod

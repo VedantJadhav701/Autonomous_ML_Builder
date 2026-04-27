@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from typing import Tuple
 from src.config import SystemConfig
-from src.logger import get_logger
+from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 

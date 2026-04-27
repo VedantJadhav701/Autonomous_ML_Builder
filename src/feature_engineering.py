@@ -6,7 +6,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, RobustScaler
 from sklearn.feature_selection import SelectKBest, f_classif
 from category_encoders import TargetEncoder
-from src.logger import get_logger
+from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -19,6 +19,10 @@ class FeatureEngineeringPipeline:
         Builds the preprocessing ColumnTransformer.
         Applies RobustScaler conditionally.
         Uses TargetEncoder for high cardinality features.
+        
+        Runtime Anomaly Fallbacks Enabled:
+        - Out-of-Vocabulary Categories -> mapped to unseen ('ignore' / 'value')
+        - Null-Heavy inference payloads -> mediated safely by SimpleImputer bounds.
         """
         transformers = []
         

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
 from src.config import SystemConfig
-from src.logger import get_logger
+from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 

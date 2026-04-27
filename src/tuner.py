@@ -2,9 +2,9 @@ import optuna
 from typing import Dict, Any, Tuple
 import pandas as pd
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.model_selection import cross_val_score, StratifiedKFold, TimeSeriesSplit
 from src.config import SystemConfig
-from src.logger import get_logger
+from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 # Suppress Optuna spam
@@ -18,13 +18,22 @@ class PipelineTuner:
         pipeline: Pipeline, 
         param_grid: Dict[str, list], 
         X: pd.DataFrame, 
-        y: pd.Series
+        y: pd.Series,
+        llm_overrides: Dict[str, Any] = None
     ) -> Pipeline:
         """
         Runs bounded Optuna optimization to find the best hyperparameters.
+        Accepts Structural LLM Overrides (e.g. changing validation strategy).
         Returns the completely refitted pipeline with best parameters.
         """
+        llm_overrides = llm_overrides or {}
         logger.info(f"Starting Optuna tuning bounded by {SystemConfig.OPTUNA_N_TRIALS} trials or {SystemConfig.OPTUNA_TIMEOUT_SEC}s timeout.")
+        
+        if llm_overrides:
+            logger.warning(f"Executing LLM Structural Overrides: {llm_overrides}")
+            # Dynamic grid replacement if LLM proposes a better boundary bounds
+            if "hyperparameters" in llm_overrides:
+                param_grid = llm_overrides["hyperparameters"]
 
         def objective(trial: optuna.Trial) -> float:
             # Dynamically suggest hyperparameters from the grid
@@ -40,8 +49,14 @@ class PipelineTuner:
             # Set params
             pipeline.set_params(**trial_params)
             
-            # 3-Fold Stratified CV to balance robustness with training time
-            cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+            # Structurally override CV if LLM detected temporal constraints
+            validation_strat = llm_overrides.get("validation_strategy", "stratified")
+            if validation_strat == "time_series":
+                logger.info("Enforcing TimeSeriesSplit Validation Strategy driven by LLM Override.")
+                cv = TimeSeriesSplit(n_splits=3)
+            else:
+                cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+                
             scores = cross_val_score(pipeline, X, y, cv=cv, scoring='roc_auc', n_jobs=-1)
             
             return scores.mean()

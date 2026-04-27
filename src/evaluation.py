@@ -5,7 +5,7 @@ from sklearn.metrics import classification_report, roc_auc_score, f1_score, prec
 import shap
 import json
 from typing import Dict, Any
-from src.logger import get_logger
+from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -38,12 +38,12 @@ class EvaluationEngine:
         return metrics
 
     @staticmethod
-    def generate_shap_report(pipeline: Pipeline, X_train: pd.DataFrame, is_tree_model: bool) -> None:
+    def generate_shap_report(pipeline: Pipeline, X_train: pd.DataFrame, is_tree_model: bool) -> Any:
         """
         Calculates global SHAP summary values. (WOW Factor)
-        A standalone HTML explainability report will be saved.
+        Returns the Explainer object so it can be serialized for the API!
         """
-        logger.info("Generating SHAP Explainability Report...")
+        logger.info("Generating SHAP Explainability Explainer...")
         try:
             # We must isolate the base model from the preprocessor to run SHAP
             # pipeline steps: [('preprocessor', ColumnTransformer), ('model', Model)]
@@ -87,7 +87,9 @@ class EvaluationEngine:
                 f.write("</body></html>")
                 
             logger.info("SHAP HTML Report generated at shap_report.html")
+            return explainer
             
         except Exception as e:
-            logger.error(f"SHAP Report Generation Failed: {str(e)}")
+            logger.error(f"SHAP Explainer Generation Failed: {str(e)}")
+            return None
 
