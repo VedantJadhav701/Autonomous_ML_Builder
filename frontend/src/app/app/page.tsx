@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, RefreshCcw, Upload, Activity } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -14,18 +14,14 @@ const DEFAULT_PAYLOAD = {
   cb_person_default_on_file: "N", cb_person_cred_hist_length: 4,
 };
 
-// Shared style tokens
-const S = {
-  bg: "#0a0a0a",
-  card: "rgba(255,255,255,0.03)",
-  border: "rgba(255,255,255,0.08)",
-  text: "#ffffff",
-  muted: "rgba(255,255,255,0.4)",
-  dim: "rgba(255,255,255,0.2)",
-  blue: "#3b82f6",
-  green: "#34d399",
-  red: "#f87171",
-  yellow: "#eab308",
+/* ─── Colour tokens ─────────────────────────────────────────────── */
+const C = {
+  bg: "#0a0a0a", card: "rgba(255,255,255,0.02)", cardHov: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.08)", borderHov: "rgba(255,255,255,0.15)",
+  text: "#fff", muted: "rgba(255,255,255,0.4)", dim: "rgba(255,255,255,0.2)",
+  blue: "#3b82f6", blueHov: "#60a5fa",
+  green: "#34d399", red: "#f87171", yellow: "#eab308",
+  inputBg: "rgba(255,255,255,0.04)",
 };
 
 export default function AppDashboard() {
@@ -40,22 +36,22 @@ export default function AppDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState<"success" | "error" | null>(null);
   const [loading, setLoading] = useState(false);
   const [fileMsg, setFileMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<"prediction" | "shap" | "feedback" | "alerts" | "upload">("prediction");
 
-  useEffect(() => {
-    const poll = async () => {
-      const t0 = Date.now();
-      try {
-        const [hRes, aRes] = await Promise.all([fetch(`${API_BASE}/health`), fetch(`${API_BASE}/alerts`)]);
-        setLatency(Date.now() - t0);
-        if (hRes.ok) setHealth(await hRes.json());
-        if (aRes.ok) { const ad = await aRes.json(); setAlerts(ad.alerts || []); }
-      } catch { setHealth(null); }
-    };
-    poll();
-    const inv = setInterval(poll, 5000);
-    return () => clearInterval(inv);
+  /* ── polling ─────────────────────────────────────────────────── */
+  const poll = useCallback(async () => {
+    const t0 = Date.now();
+    try {
+      const [hRes, aRes] = await Promise.all([fetch(`${API_BASE}/health`), fetch(`${API_BASE}/alerts`)]);
+      setLatency(Date.now() - t0);
+      if (hRes.ok) setHealth(await hRes.json());
+      if (aRes.ok) { const ad = await aRes.json(); setAlerts(ad.alerts || []); }
+    } catch { setHealth(null); }
   }, []);
 
+  useEffect(() => { poll(); const iv = setInterval(poll, 5000); return () => clearInterval(iv); }, [poll]);
+
+  /* ── inference ───────────────────────────────────────────────── */
   const handlePredict = async () => {
     setLoading(true); setPrediction(null); setShap(null);
     try {
@@ -66,18 +62,23 @@ export default function AppDashboard() {
         fetch(`${API_BASE}/explain`, { method: "POST", headers: h, body }),
       ]);
       if (pRes.ok) setPrediction(await pRes.json());
-      if (sRes.ok) { const sd = await sRes.json(); if (sd.explainability?.[0]) setShap(sd.explainability[0]); }
+      if (sRes.ok) { const sd = await sRes.json(); if (sd.explainability?.[0]) { setShap(sd.explainability[0]); setActiveTab("shap"); } }
     } finally { setLoading(false); }
   };
 
+  /* ── feedback ────────────────────────────────────────────────── */
   const handleFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ request_ids: [feedbackId], truths: [Number(feedbackLabel)] }) });
+      const res = await fetch(`${API_BASE}/feedback`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_ids: [feedbackId], truths: [Number(feedbackLabel)] }),
+      });
       setFeedbackMsg(res.ok ? "success" : "error");
     } catch { setFeedbackMsg("error"); }
   };
 
+  /* ── file upload ─────────────────────────────────────────────── */
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -86,212 +87,373 @@ export default function AppDashboard() {
     setFileMsg({ ok: true, text: `${f.name} — ${(f.size / 1024).toFixed(0)} KB ready` });
   };
 
-  const shapData = shap ? Object.entries(shap).map(([k, v]) => ({ name: k.split("__").pop()?.toUpperCase() ?? k, val: v })).sort((a, b) => Math.abs(b.val) - Math.abs(a.val)).slice(0, 8) : [];
+  const shapData = shap
+    ? Object.entries(shap).map(([k, v]) => ({ name: k.split("__").pop()?.toUpperCase() ?? k, val: v })).sort((a, b) => Math.abs(b.val) - Math.abs(a.val)).slice(0, 8)
+    : [];
+
+  const tabs: { id: typeof activeTab; label: string; icon: React.ReactNode }[] = [
+    { id: "prediction", label: "Inference", icon: <Activity style={{ width: 14, height: 14 }} /> },
+    { id: "shap",       label: "SHAP",      icon: "🧠" },
+    { id: "feedback",   label: "Feedback",  icon: "🔁" },
+    { id: "alerts",     label: `Alerts${alerts.length > 0 ? ` (${alerts.length})` : ""}`, icon: <AlertTriangle style={{ width: 14, height: 14 }} /> },
+    { id: "upload",     label: "Dataset",   icon: <Upload style={{ width: 14, height: 14 }} /> },
+  ];
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: S.bg, color: S.text }}>
+    <div style={{ minHeight: "100vh", backgroundColor: C.bg, color: C.text, fontFamily: "Inter,-apple-system,sans-serif" }}>
 
-      {/* ── Header ── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 56, borderBottom: `1px solid ${S.border}`, backgroundColor: "rgba(10,10,10,0.92)", backdropFilter: "blur(16px)", display: "flex", alignItems: "center", padding: "0 24px" }}>
-        <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
+      {/* ── Sticky header ── */}
+      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 58, borderBottom: `1px solid ${C.border}`, backgroundColor: "rgba(10,10,10,0.93)", backdropFilter: "blur(20px)", display: "flex", alignItems: "center", padding: "0 24px" }}>
+        <div style={{ maxWidth: 1100, width: "100%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, color: S.muted, fontSize: 13 }}>
-              <ArrowLeft className="w-4 h-4" /> Home
-            </Link>
-            <span style={{ color: S.border }}>|</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Operational Console</span>
+            <NavBack />
+            <span style={{ color: C.border }}>|</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.65)" }}>Operational Console</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Pill label="Pipeline" active={health?.pipeline_loaded} />
-            <Pill label="SHAP" active={health?.explainer_loaded} />
-            <span style={{ fontSize: 12, fontFamily: "monospace", color: health?.status === "ok" ? S.green : "#f87171" }}>
-              {health?.status === "ok" ? `${latency}ms` : "Offline"}
+            <StatusPill label="Pipeline" active={health?.pipeline_loaded} />
+            <StatusPill label="SHAP" active={health?.explainer_loaded} />
+            <span style={{ fontSize: 12, fontFamily: "monospace", padding: "4px 10px", borderRadius: 8, backgroundColor: health?.status === "ok" ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)", color: health?.status === "ok" ? C.green : C.red }}>
+              {health?.status === "ok" ? `API · ${latency}ms` : "API · Offline"}
             </span>
+            <RefreshBtn onClick={poll} />
           </div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-6" style={{ paddingTop: 40, paddingBottom: 60, display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px 60px" }}>
 
-        {/* ── Section 1: Prediction ── */}
-        <Card title="Prediction Engine" subtitle="Configure input features and run live inference against the deployed model.">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            <div className="lg:col-span-3" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {Object.entries(formData).map(([key, val]) => (
-                  <Field key={key} label={key.replace(/_/g, " ")} value={val}
-                    onChange={v => setFormData(p => ({ ...p, [key]: isNaN(Number(v)) || v === "" ? v : Number(v) }))} />
-                ))}
-              </div>
-              <button onClick={handlePredict} disabled={loading}
-                style={{ width: "100%", height: 44, backgroundColor: loading ? "#1d4ed8" : S.blue, border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
-                {loading ? "Running inference…" : "Execute Inference"}
-              </button>
-            </div>
-
-            <div className="lg:col-span-2" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ borderRadius: 12, border: `1px solid ${S.border}`, backgroundColor: S.card, height: 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 8 }}>
-                {prediction ? (<>
-                  <p style={{ fontSize: 11, color: S.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em" }}>Result</p>
-                  <p style={{ fontSize: 40, fontWeight: 900, color: prediction.predictions[0] === 0 ? S.green : S.red }}>
-                    {prediction.predictions[0] === 0 ? "APPROVED" : "REJECTED"}
-                  </p>
-                  <p style={{ fontSize: 10, fontFamily: "monospace", color: S.dim, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prediction.request_ids?.[0]}</p>
-                </>) : <p style={{ fontSize: 14, color: S.dim, fontStyle: "italic" }}>No prediction yet</p>}
-              </div>
-              <div style={{ borderRadius: 12, border: `1px solid ${S.border}`, backgroundColor: S.card, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <p style={{ fontSize: 11, color: S.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em" }}>Inference Speed</p>
-                  <p style={{ fontSize: 28, fontWeight: 900, color: S.text, marginTop: 4 }}>&lt; 10ms</p>
-                </div>
-                <span style={{ fontSize: 24 }}>⚡</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* ── Section 2: SHAP ── */}
-        <Card title="Feature Explanations (SHAP)" subtitle="Green = pushes toward approval · Red = pushes toward rejection" badge={shap ? "Live" : undefined}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div style={{ height: 260 }}>
-              {shapData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={shapData} layout="vertical">
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={90} tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: "rgba(255,255,255,0.02)" }} contentStyle={{ background: "#111", border: `1px solid ${S.border}`, borderRadius: 8, fontSize: 11 }} />
-                    <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={16}>
-                      {shapData.map((e, i) => <Cell key={i} fill={e.val > 0 ? S.green : S.red} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${S.border}`, borderRadius: 12 }}>
-                  <p style={{ fontSize: 13, color: S.dim, fontStyle: "italic" }}>Run inference to generate SHAP report</p>
-                </div>
-              )}
-            </div>
-
-            <div style={{ borderRadius: 12, border: `1px solid ${S.border}`, overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${S.border}`, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 10, fontWeight: 700, color: S.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>Feature</th>
-                    <th style={{ textAlign: "right", padding: "10px 16px", fontSize: 10, fontWeight: 700, color: S.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shap ? Object.entries(shap).sort(([, a], [, b]) => Math.abs(b) - Math.abs(a)).map(([key, val]) => (
-                    <tr key={key} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                      <td style={{ padding: "10px 16px", fontFamily: "monospace", fontSize: 10, color: S.muted }}>{key}</td>
-                      <td style={{ padding: "10px 16px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: val > 0 ? S.green : S.red }}>{val > 0 ? "+" : ""}{val.toFixed(4)}</td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={2} style={{ padding: "32px 16px", textAlign: "center", color: S.dim, fontStyle: "italic" }}>No data</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Card>
-
-        {/* ── Row: Feedback + Sentinel ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card title="Feedback Reconciliation" subtitle="Match delayed ground truth to a request ID">
-            <form onSubmit={handleFeedback} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Request ID" value={feedbackId} onChange={setFeedbackId} placeholder="web-req-1234567890" type="text" />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: S.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>True Label</label>
-                <select value={feedbackLabel} onChange={e => setFeedbackLabel(e.target.value)}
-                  style={{ height: 40, padding: "0 12px", backgroundColor: "rgba(255,255,255,0.04)", border: `1px solid ${S.border}`, borderRadius: 8, color: S.text, fontSize: 14 }}>
-                  <option value="0">0 — Approved (No Default)</option>
-                  <option value="1">1 — Rejected (Default)</option>
-                </select>
-              </div>
-              <button type="submit" style={{ height: 40, backgroundColor: "rgba(255,255,255,0.06)", border: `1px solid ${S.border}`, borderRadius: 8, color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-                Submit Feedback
-              </button>
-              {feedbackMsg && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, color: feedbackMsg === "success" ? S.green : S.red }}>
-                  {feedbackMsg === "success" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  {feedbackMsg === "success" ? "Feedback logged successfully." : "Failed to log feedback."}
-                </div>
-              )}
-            </form>
-          </Card>
-
-          <Card title="Drift Sentinel" subtitle="Live KS-Test and Chi-Square monitoring" badge={alerts.length > 0 ? `${alerts.length} active` : "Clear"}>
-            <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-              {alerts.length === 0 ? (
-                <div style={{ height: 120, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: S.dim }}>
-                  <CheckCircle2 className="w-6 h-6" />
-                  <span style={{ fontSize: 12 }}>No active drift detected</span>
-                </div>
-              ) : alerts.slice().reverse().map((a, i) => (
-                <div key={i} style={{ padding: 14, borderRadius: 10, backgroundColor: "rgba(234,179,8,0.05)", border: "1px solid rgba(234,179,8,0.1)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: S.yellow, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 5 }}>
-                      <AlertTriangle className="w-3 h-3" />{a.title}
-                    </span>
-                    <span style={{ fontSize: 10, color: S.dim, fontFamily: "monospace" }}>{new Date(a.timestamp * 1000).toLocaleTimeString()}</span>
-                  </div>
-                  <p style={{ fontSize: 11, color: S.muted, lineHeight: 1.55 }}>{a.message}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
+        {/* ── Tab Navigation ── */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 28, borderBottom: `1px solid ${C.border}`, paddingBottom: 0 }}>
+          {tabs.map(t => <TabBtn key={t.id} id={t.id} label={t.label} icon={t.icon} active={activeTab === t.id} onClick={() => setActiveTab(t.id)} hasAlert={t.id === "alerts" && alerts.length > 0} />)}
         </div>
 
-        {/* ── Dataset Upload ── */}
-        <Card title="Dataset Upload" subtitle="CSV files only · max 5 MB · 50,000 row limit enforced at training">
-          <label htmlFor="csv-upload" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, height: 120, borderRadius: 12, border: `2px dashed ${S.border}`, cursor: "pointer" }}>
-            <p style={{ fontSize: 14, color: S.muted }}>Drop a CSV file here or click to browse</p>
-            <p style={{ fontSize: 12, color: S.dim }}>Max 5 MB · CSV only</p>
-            <input type="file" accept=".csv" onChange={handleFile} style={{ display: "none" }} id="csv-upload" />
-          </label>
-          {fileMsg && (
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 600, color: fileMsg.ok ? S.green : S.red }}>
-              {fileMsg.ok ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-              {fileMsg.text}
+        {/* ── PANEL: Prediction ── */}
+        {activeTab === "prediction" && (
+          <Panel title="Prediction Engine" subtitle="Adjust input features and execute live inference against the deployed model.">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+              {/* Left: form */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  {Object.entries(formData).map(([key, val]) => (
+                    <Field key={key} label={key.replace(/_/g, " ")} value={val}
+                      onChange={v => setFormData(p => ({ ...p, [key]: isNaN(Number(v)) || v === "" ? v : Number(v) }))} />
+                  ))}
+                </div>
+                <RunBtn loading={loading} onClick={handlePredict} />
+              </div>
+
+              {/* Right: results */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <ResultBox prediction={prediction} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <StatBox label="Inference Speed" value="< 10ms" sub="P95 latency" />
+                  <StatBox label="Infra Constraint" value="< 1 GB" sub="RAM footprint" />
+                </div>
+                {prediction && (
+                  <ActionBtn onClick={() => setActiveTab("shap")} label="View SHAP Explanations →" />
+                )}
+              </div>
             </div>
-          )}
-        </Card>
+          </Panel>
+        )}
+
+        {/* ── PANEL: SHAP ── */}
+        {activeTab === "shap" && (
+          <Panel title="Feature Explanations (SHAP)" subtitle="Green bars push toward approval · Red bars push toward rejection · Run inference first to populate.">
+            {shapData.length > 0 ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                <div style={{ height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={shapData} layout="vertical">
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={95} tick={{ fill: "rgba(255,255,255,0.38)", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={{ fill: "rgba(255,255,255,0.02)" }} contentStyle={{ background: "#111", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 11 }} />
+                      <Bar dataKey="val" radius={[0, 5, 5, 0]} barSize={18}>
+                        {shapData.map((e, i) => <Cell key={i} fill={e.val > 0 ? C.green : C.red} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ borderRadius: 14, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: "rgba(255,255,255,0.02)" }}>
+                        <th style={{ textAlign: "left", padding: "11px 16px", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>Feature</th>
+                        <th style={{ textAlign: "right", padding: "11px 16px", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>SHAP</th>
+                        <th style={{ textAlign: "right", padding: "11px 16px", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>Impact</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(shap!).sort(([, a], [, b]) => Math.abs(b) - Math.abs(a)).map(([key, val]) => (
+                        <SHAPRow key={key} name={key} val={val} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <EmptyState icon="🧠" text="No SHAP data yet. Run inference on the Prediction tab first." cta="Go to Inference →" onCta={() => setActiveTab("prediction")} />
+            )}
+          </Panel>
+        )}
+
+        {/* ── PANEL: Feedback ── */}
+        {activeTab === "feedback" && (
+          <Panel title="Feedback Reconciliation" subtitle="Submit delayed ground truth labels by request ID to keep the model evaluation loop running.">
+            <div style={{ maxWidth: 480 }}>
+              <form onSubmit={handleFeedback} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                <Field label="Request ID" value={feedbackId} onChange={setFeedbackId} placeholder="e.g. web-req-1712345678" type="text" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>True Label</label>
+                  <select value={feedbackLabel} onChange={e => setFeedbackLabel(e.target.value)}
+                    style={{ height: 42, padding: "0 14px", backgroundColor: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, fontSize: 14, outline: "none" }}>
+                    <option value="0">0 — Approved (No Default)</option>
+                    <option value="1">1 — Rejected (Default)</option>
+                  </select>
+                </div>
+                <SubmitBtn label="Submit Feedback" />
+                {feedbackMsg && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: feedbackMsg === "success" ? C.green : C.red }}>
+                    {feedbackMsg === "success" ? <CheckCircle2 style={{ width: 16, height: 16 }} /> : <XCircle style={{ width: 16, height: 16 }} />}
+                    {feedbackMsg === "success" ? "Feedback logged successfully." : "Failed to log feedback. Check API connection."}
+                  </div>
+                )}
+              </form>
+            </div>
+          </Panel>
+        )}
+
+        {/* ── PANEL: Alerts ── */}
+        {activeTab === "alerts" && (
+          <Panel
+            title="Drift Sentinel"
+            subtitle="Live Kolmogorov-Smirnov and Chi-Square anomaly monitoring. Auto-polls every 5 seconds."
+            badge={alerts.length > 0 ? `${alerts.length} active` : "Clear"}
+            badgeColor={alerts.length > 0 ? C.yellow : C.green}
+          >
+            {alerts.length === 0 ? (
+              <EmptyState icon="✅" text="No drift detected. All distributions are within normal bounds." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {alerts.slice().reverse().map((a, i) => <AlertCard key={i} alert={a} />)}
+              </div>
+            )}
+          </Panel>
+        )}
+
+        {/* ── PANEL: Upload ── */}
+        {activeTab === "upload" && (
+          <Panel title="Dataset Upload" subtitle="Upload a CSV dataset for inspection. Max 5 MB · 50,000 row limit enforced at training time.">
+            <div style={{ maxWidth: 560 }}>
+              <DropZone onFile={handleFile} />
+              {fileMsg && (
+                <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 600, color: fileMsg.ok ? C.green : C.red }}>
+                  {fileMsg.ok ? <CheckCircle2 style={{ width: 16, height: 16 }} /> : <XCircle style={{ width: 16, height: 16 }} />}
+                  {fileMsg.text}
+                </div>
+              )}
+              <div style={{ marginTop: 24, padding: 20, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Constraints</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[{ k: "Format", v: "CSV only" }, { k: "Max File Size", v: "5 MB" }, { k: "Max Rows", v: "50,000" }, { k: "Encoding", v: "UTF-8" }].map(c => (
+                    <div key={c.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.muted }}>{c.k}</span>
+                      <span style={{ fontWeight: 600, color: C.text }}>{c.v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Panel>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Shared ───────────────────────────────────────────────────────────────────
-function Card({ title, subtitle, badge, children }: { title: string; subtitle?: string; badge?: string; children: React.ReactNode }) {
+/* ─── Sub-components ──────────────────────────────────────────────────────── */
+
+function NavBack() {
+  const [hov, setHov] = useState(false);
   return (
-    <section style={{ borderRadius: 20, border: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.02)", overflow: "hidden" }}>
-      <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+    <Link href="/" onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: hov ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)", transition: "color 0.2s" }}>
+      <ArrowLeft style={{ width: 15, height: 15 }} /> Home
+    </Link>
+  );
+}
+
+function RefreshBtn({ onClick }: { onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: hov ? "rgba(255,255,255,0.8)" : C.muted, transition: "all 0.2s", backgroundColor: hov ? "rgba(255,255,255,0.06)" : "transparent" }}
+      title="Refresh system status">
+      <RefreshCcw style={{ width: 14, height: 14 }} />
+    </button>
+  );
+}
+
+function TabBtn({ id, label, icon, active, onClick, hasAlert }: any) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", fontSize: 13, fontWeight: active ? 700 : 500, color: active ? "#fff" : hov ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", borderBottom: active ? "2px solid #3b82f6" : "2px solid transparent", marginBottom: -1, transition: "all 0.2s" }}>
+      <span style={{ color: hasAlert ? C.yellow : "inherit" }}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function Panel({ title, subtitle, badge, badgeColor, children }: { title: string; subtitle?: string; badge?: string; badgeColor?: string; children: React.ReactNode }) {
+  return (
+    <section style={{ borderRadius: 20, border: `1px solid ${C.border}`, backgroundColor: C.card, overflow: "hidden" }}>
+      <div style={{ padding: "22px 28px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#ffffff" }}>{title}</h2>
-          {subtitle && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>{subtitle}</p>}
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: 0 }}>{title}</h2>
+          {subtitle && <p style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.55 }}>{subtitle}</p>}
         </div>
-        {badge && <span style={{ fontSize: 10, fontWeight: 600, padding: "4px 10px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0 }}>{badge}</span>}
+        {badge && <span style={{ padding: "4px 12px", borderRadius: 99, fontSize: 11, fontWeight: 700, border: "1px solid", borderColor: badgeColor || C.border, color: badgeColor || C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>{badge}</span>}
       </div>
-      <div style={{ padding: 24 }}>{children}</div>
+      <div style={{ padding: 28 }}>{children}</div>
     </section>
   );
 }
 
 function Field({ label, value, onChange, placeholder, type }: { label: string; value: any; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  const [focus, setFocus] = useState(false);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</label>
+      <label style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</label>
       <input type={type ?? (typeof value === "number" ? "number" : "text")} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={{ height: 40, padding: "0 12px", backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#ffffff", fontSize: 14, fontFamily: "monospace", outline: "none", width: "100%" }} />
+        onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+        style={{ height: 40, padding: "0 12px", backgroundColor: C.inputBg, border: `1px solid ${focus ? C.blue : C.border}`, borderRadius: 8, color: "#fff", fontSize: 13, fontFamily: "monospace", outline: "none", width: "100%", transition: "border-color 0.2s", boxSizing: "border-box" }} />
     </div>
   );
 }
 
-function Pill({ label, active }: { label: string; active?: boolean }) {
+function RunBtn({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  const [hov, setHov] = useState(false);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.03)" }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: active ? "#34d399" : "rgba(255,255,255,0.2)", display: "inline-block" }} />
-      <span style={{ fontSize: 11, fontWeight: 600, color: active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)" }}>{label}</span>
+    <button onClick={onClick} disabled={loading} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ height: 46, backgroundColor: loading ? "#1d4ed8" : hov ? "#60a5fa" : C.blue, border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.75 : 1, transition: "all 0.2s", boxShadow: hov && !loading ? "0 8px 24px rgba(59,130,246,0.3)" : "none", transform: hov && !loading ? "translateY(-1px)" : "translateY(0)" }}>
+      {loading ? "Running inference…" : "Execute Inference"}
+    </button>
+  );
+}
+
+function SubmitBtn({ label }: { label: string }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button type="submit" onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ height: 42, backgroundColor: hov ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)", border: `1px solid ${hov ? "rgba(255,255,255,0.2)" : C.border}`, borderRadius: 10, color: hov ? "#fff" : "rgba(255,255,255,0.65)", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
+      {label}
+    </button>
+  );
+}
+
+function ActionBtn({ onClick, label }: { onClick: () => void; label: string }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ padding: "10px 16px", backgroundColor: "transparent", border: `1px solid ${hov ? C.blue : C.border}`, borderRadius: 10, color: hov ? C.blue : C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", textAlign: "left" }}>
+      {label}
+    </button>
+  );
+}
+
+function ResultBox({ prediction }: { prediction: any }) {
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${C.border}`, backgroundColor: C.card, height: 160, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center" }}>
+      {prediction ? (<>
+        <p style={{ fontSize: 11, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>Classification Result</p>
+        <p style={{ fontSize: 44, fontWeight: 900, color: prediction.predictions[0] === 0 ? C.green : C.red, margin: 0, letterSpacing: "-0.02em" }}>
+          {prediction.predictions[0] === 0 ? "APPROVED" : "REJECTED"}
+        </p>
+        <p style={{ fontSize: 10, fontFamily: "monospace", color: C.dim, margin: 0, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prediction.request_ids?.[0]}</p>
+      </>) : <p style={{ fontSize: 14, color: C.dim, fontStyle: "italic" }}>No prediction yet</p>}
+    </div>
+  );
+}
+
+function StatBox({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${C.border}`, backgroundColor: C.card, padding: "16px 18px" }}>
+      <p style={{ fontSize: 11, color: C.dim, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
+      <p style={{ fontSize: 26, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>{value}</p>
+      <p style={{ fontSize: 11, color: C.muted, margin: "4px 0 0" }}>{sub}</p>
+    </div>
+  );
+}
+
+function SHAPRow({ name, val }: { name: string; val: number }) {
+  const [hov, setHov] = useState(false);
+  const pct = Math.min(Math.abs(val) * 600, 100);
+  return (
+    <tr onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, backgroundColor: hov ? "rgba(255,255,255,0.02)" : "transparent", transition: "background 0.15s" }}>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace", fontSize: 10, color: C.muted }}>{name}</td>
+      <td style={{ padding: "10px 16px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: val > 0 ? C.green : C.red }}>{val > 0 ? "+" : ""}{val.toFixed(4)}</td>
+      <td style={{ padding: "10px 16px", textAlign: "right" }}>
+        <div style={{ width: 64, height: 4, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.06)", overflow: "hidden", marginLeft: "auto" }}>
+          <div style={{ height: "100%", borderRadius: 4, width: `${pct}%`, backgroundColor: val > 0 ? C.green : C.red }} />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function AlertCard({ alert }: { alert: any }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ padding: 18, borderRadius: 14, backgroundColor: hov ? "rgba(234,179,8,0.07)" : "rgba(234,179,8,0.04)", border: "1px solid rgba(234,179,8,0.12)", transition: "background 0.2s" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 800, color: C.yellow, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          <AlertTriangle style={{ width: 12, height: 12 }} />{alert.title}
+        </span>
+        <span style={{ fontSize: 10, color: C.dim, fontFamily: "monospace" }}>{new Date(alert.timestamp * 1000).toLocaleTimeString()}</span>
+      </div>
+      <p style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, margin: 0 }}>{alert.message}</p>
+    </div>
+  );
+}
+
+function DropZone({ onFile }: { onFile: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+  const [drag, setDrag] = useState(false);
+  return (
+    <label htmlFor="csv-upload"
+      onDragOver={e => { e.preventDefault(); setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, height: 160, borderRadius: 16, border: `2px dashed ${drag ? C.blue : C.border}`, backgroundColor: drag ? "rgba(59,130,246,0.05)" : "rgba(255,255,255,0.01)", cursor: "pointer", transition: "all 0.2s" }}>
+      <Upload style={{ width: 28, height: 28, color: drag ? C.blue : C.muted }} />
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontSize: 14, color: C.muted, margin: 0 }}>Drop a CSV file here or click to browse</p>
+        <p style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>Max 5 MB · CSV only</p>
+      </div>
+      <input type="file" accept=".csv" onChange={onFile} style={{ display: "none" }} id="csv-upload" />
+    </label>
+  );
+}
+
+function EmptyState({ icon, text, cta, onCta }: { icon: string; text: string; cta?: string; onCta?: () => void }) {
+  return (
+    <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center" }}>
+      <span style={{ fontSize: 36 }}>{icon}</span>
+      <p style={{ fontSize: 14, color: C.muted, maxWidth: 360, lineHeight: 1.65, margin: 0 }}>{text}</p>
+      {cta && onCta && (
+        <button onClick={onCta} style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: "rgba(255,255,255,0.55)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{cta}</button>
+      )}
+    </div>
+  );
+}
+
+function StatusPill({ label, active }: { label: string; active?: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 12px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)" }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: active ? C.green : "rgba(255,255,255,0.18)", display: "inline-block", boxShadow: active ? `0 0 6px ${C.green}` : "none" }} />
+      <span style={{ fontSize: 11, fontWeight: 600, color: active ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.22)" }}>{label}</span>
     </div>
   );
 }
