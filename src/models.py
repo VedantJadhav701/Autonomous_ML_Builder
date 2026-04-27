@@ -1,48 +1,43 @@
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 from lightgbm import LGBMClassifier
 from typing import Tuple, Any, Dict
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
 
-class ModelSelector:
+class ModelSelectionEngine:
     """Dynamically selects the optimal model and its base parameters based on data sparsity and size."""
 
     @staticmethod
-    def get_model(n_samples: int, n_features: int, is_sparse_expected: bool) -> Tuple[Any, Dict[str, Any], bool]:
-        """
-        Returns an instance of the chosen model and its param grid for tuning.
-        Also returns `is_tree_model` flag for preprocessing decisions.
-        """
-        # Criteria for Logistic Regression: High sparsity (e.g., lots of OHE features) or very small datasets
-        if is_sparse_expected and n_samples < 5000:
-            logger.info("Selecting Logistic Regression (Optimized for high sparsity on small data).")
-            model = LogisticRegression(solver='liblinear', max_iter=1000)
-            param_grid = {
-                'model__C': [0.1, 1.0, 10.0],
-                'model__penalty': ['l1', 'l2']
-            }
-            return model, param_grid, False
-
-        # Criteria for Random Forest: Small datasets, robust to noise
-        elif n_samples < 10000 and n_features < 50:
-            logger.info("Selecting Random Forest (Robustness prior over boosting on small dense data).")
-            model = RandomForestClassifier(n_jobs=-1, random_state=42)
-            param_grid = {
-                'model__n_estimators': [50, 100, 200],
-                'model__max_depth': [None, 10, 20],
-                'model__min_samples_split': [2, 5]
-            }
-            return model, param_grid, True
-
-        # Criteria for LightGBM: Medium/Large datasets, fast CPU performance
+    def get_model_candidate(n_samples: int, n_features: int, is_sparse: bool) -> Any:
+        """Selects a base model candidate for the dataset traits."""
+        if is_sparse and n_samples < 5000:
+            logger.info("Selecting Logistic Regression for sparse data.")
+            return LogisticRegression(solver='liblinear', max_iter=1000)
+        elif n_samples < 10000:
+            logger.info("Selecting Random Forest for robust small-scale learning.")
+            return RandomForestClassifier(n_jobs=-1, random_state=42)
         else:
-            logger.info("Selecting LightGBM (Superior performance on medium dataset sizes).")
-            model = LGBMClassifier(n_jobs=-1, random_state=42, verbose=-1)
-            param_grid = {
-                'model__num_leaves': [31, 63, 127],
-                'model__learning_rate': [0.01, 0.05, 0.1],
-                'model__n_estimators': [100, 200]
-            }
-            return model, param_grid, True
+            logger.info("Selecting LightGBM for performant large-scale learning.")
+            return LGBMClassifier(n_jobs=-1, random_state=42, verbose=-1)
+
+    @staticmethod
+    def create_unified_pipeline(preprocessor: Any, model: Any) -> Pipeline:
+        """Wraps preprocessor and model into a single versioned pipeline."""
+        return Pipeline([
+            ('preprocessor', preprocessor),
+            ('model', model)
+        ])
+
+    @staticmethod
+    def get_param_grid(model: Any) -> Dict[str, Any]:
+        """Returns search space for the selected model."""
+        if isinstance(model, LogisticRegression):
+            return {'model__C': [0.1, 1.0, 10.0]}
+        if isinstance(model, RandomForestClassifier):
+            return {'model__n_estimators': [50, 100]}
+        if isinstance(model, LGBMClassifier):
+            return {'model__learning_rate': [0.05, 0.1]}
+        return {}

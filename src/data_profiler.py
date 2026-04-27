@@ -84,6 +84,12 @@ class DataProfiler:
         }
         
     @staticmethod
+    def profile_data(df: pd.DataFrame) -> Dict[str, Any]:
+        """Legacy alias for identify_feature_types used in demo scripts."""
+        layout = DataProfiler.identify_feature_types(df, target_col="")
+        return {"feature_layout": layout}
+
+    @staticmethod
     def profile_and_prepare(df: pd.DataFrame, target_col: str) -> Tuple[pd.DataFrame, pd.Series, Dict[str, List[str]]]:
         """Orchestrates memory optimization, profiling, and X/y split."""
         df_optimized = DataProfiler.optimize_memory(df)

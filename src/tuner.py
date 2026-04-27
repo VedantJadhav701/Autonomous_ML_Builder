@@ -10,11 +10,11 @@ logger = get_logger(__name__)
 # Suppress Optuna spam
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-class PipelineTuner:
+class HyperparameterTuner:
     """Resource-aware Hyperparameter tuner using Optuna to adhere to time/memory constraints."""
 
     @staticmethod
-    def optimize(
+    def tune(
         pipeline: Pipeline, 
         param_grid: Dict[str, list], 
         X: pd.DataFrame, 
@@ -29,37 +29,30 @@ class PipelineTuner:
         llm_overrides = llm_overrides or {}
         logger.info(f"Starting Optuna tuning bounded by {SystemConfig.OPTUNA_N_TRIALS} trials or {SystemConfig.OPTUNA_TIMEOUT_SEC}s timeout.")
         
-        if llm_overrides:
-            logger.warning(f"Executing LLM Structural Overrides: {llm_overrides}")
-            # Dynamic grid replacement if LLM proposes a better boundary bounds
-            if "hyperparameters" in llm_overrides:
-                param_grid = llm_overrides["hyperparameters"]
+        # If no grid provided, get default for the model
+        if not param_grid:
+            from src.models import ModelSelectionEngine
+            model = pipeline.named_steps['model']
+            param_grid = ModelSelectionEngine.get_param_grid(model)
 
         def objective(trial: optuna.Trial) -> float:
-            # Dynamically suggest hyperparameters from the grid
             trial_params = {}
             for param_name, param_values in param_grid.items():
-                if isinstance(param_values[0], int):
-                    trial_params[param_name] = trial.suggest_categorical(param_name, param_values)
-                elif isinstance(param_values[0], float):
-                    trial_params[param_name] = trial.suggest_categorical(param_name, param_values)
-                elif isinstance(param_values[0], str) or param_values[0] is None:
-                    trial_params[param_name] = trial.suggest_categorical(param_name, param_values)
+                trial_params[param_name] = trial.suggest_categorical(param_name, param_values)
             
-            # Set params
             pipeline.set_params(**trial_params)
             
-            # Structurally override CV if LLM detected temporal constraints
             validation_strat = llm_overrides.get("validation_strategy", "stratified")
             if validation_strat == "time_series":
-                logger.info("Enforcing TimeSeriesSplit Validation Strategy driven by LLM Override.")
                 cv = TimeSeriesSplit(n_splits=3)
             else:
                 cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
                 
-            scores = cross_val_score(pipeline, X, y, cv=cv, scoring='roc_auc', n_jobs=-1)
-            
-            return scores.mean()
+            try:
+                scores = cross_val_score(pipeline, X, y, cv=cv, scoring='f1_weighted', n_jobs=-1)
+                return scores.mean()
+            except Exception:
+                return 0.0
 
         study = optuna.create_study(direction="maximize")
         study.optimize(
@@ -68,11 +61,10 @@ class PipelineTuner:
             timeout=SystemConfig.OPTUNA_TIMEOUT_SEC
         )
         
-        logger.info(f"Optimal ROC-AUC Score from Tuning: {study.best_value:.4f}")
-        logger.info(f"Best Parameters: {study.best_params}")
+        logger.info(f"Optimal Score from Tuning: {study.best_value:.4f}")
         
         # Refit pipeline on full data with best params
-        best_pipeline = pipeline.set_params(**study.best_params)
-        best_pipeline.fit(X, y)
+        pipeline.set_params(**study.best_params)
+        pipeline.fit(X, y)
         
-        return best_pipeline
+        return pipeline
