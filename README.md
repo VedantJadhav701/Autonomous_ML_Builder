@@ -17,9 +17,13 @@ Most AutoML tools are designed for limitless cloud compute. In real-world produc
 ## 🟢 2. The Solution
 The **Autonomous ML Builder** is a self-healing, resource-aware pipeline that manages the entire ML lifecycle—from adaptive feature engineering to asynchronous production monitoring. It is built to "Fail Safe" and "Stay Fast."
 
+## ☁️ 3. Cloud Deployment
+- **Backend**: Deployed on **Render** (FastAPI Core + Dockerized Artifacts).
+- **Frontend**: Deployed on **Vercel** (Next.js Dashboard + Real-time Observability).
+
 ---
 
-## 🛠 3. Key Features
+## 🛠 4. Key Features
 
 ### 🧠 Pipeline Intelligence
 - **Dynamic Model Router**: Auto-selects between `LogisticRegression` (sparsity), `RandomForest` (small scale), and `LightGBM` (performance).
@@ -39,7 +43,7 @@ The **Autonomous ML Builder** is a self-healing, resource-aware pipeline that ma
 
 ---
 
-## 📐 4. Architecture Diagram
+## 📐 5. Architecture Diagram
 
 ```mermaid
 graph TD
@@ -61,7 +65,7 @@ graph TD
 
 ---
 
-## 🚀 5. Demo Instructions
+## 🚀 6. Demo Instructions
 
 ### 🐳 Run with Docker (Recommended)
 ```bash
@@ -77,7 +81,7 @@ uvicorn app.main:app --reload
 
 ---
 
-## 📡 6. API Examples
+## 📡 7. API Examples
 
 ### **POST /predict**
 ```json
@@ -104,7 +108,7 @@ uvicorn app.main:app --reload
 
 ---
 
-## 📊 7. Benchmarks
+## 📊 8. Benchmarks
 Verified on **Standard 2-Core CPU Environment**:
 - **P95 Latency**: **8.42 ms**
 - **Average Latency**: **4.10 ms**
@@ -113,7 +117,7 @@ Verified on **Standard 2-Core CPU Environment**:
 
 ---
 
-## ⚠️ 8. Strict System Boundaries
+## ⚠️ 9. Strict System Boundaries
 - **Constraint**: Max Dataset Size = **50,000 rows**.
 - **Constraint**: Max File Size = **5MB**.
 - **Constraint**: CPU-Only (No GPU acceleration).
@@ -121,5 +125,5 @@ Verified on **Standard 2-Core CPU Environment**:
 
 ---
 
-## 📜 9. License
+## 📜 10. License
 MIT License. Built with 💎 by Vedant Jadhav.

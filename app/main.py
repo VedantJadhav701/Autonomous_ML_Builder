@@ -133,6 +133,11 @@ async def feedback(request: FeedbackRequest):
         logger.error(f"Feedback error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/alerts")
+async def get_alerts():
+    from src.monitoring.alerting import AlertManager
+    return {"alerts": AlertManager.get_history()}
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "pipeline_loaded": PIPELINE is not None, "explainer_loaded": EXPLAINER is not None}

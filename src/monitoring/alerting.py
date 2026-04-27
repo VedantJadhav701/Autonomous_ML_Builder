@@ -10,12 +10,28 @@ class AlertManager:
     
     WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL")
     _last_alerts = {} # Title -> timestamp cache for rate limiting
+    _history = [] # Last 50 alerts for the UI
     ALERT_WINDOW_SEC = 60 # Cooldown period
+
+    @classmethod
+    def get_history(cls):
+        return cls._history
 
     @classmethod
     def send_alert(cls, title: str, message: str, level: str = "WARNING") -> None:
         """Dispatches an alert with built-in spam suppression."""
         now = time.time()
+        
+        # Log to internal history for the UI dashboard
+        cls._history.append({
+            "timestamp": now,
+            "title": title,
+            "message": message,
+            "level": level
+        })
+        if len(cls._history) > 50:
+            cls._history.pop(0)
+
         if title in cls._last_alerts:
             if now - cls._last_alerts[title] < cls.ALERT_WINDOW_SEC:
                 logger.debug(f"Suppressing redundant alert '{title}' within {cls.ALERT_WINDOW_SEC}s window.")
