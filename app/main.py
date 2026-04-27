@@ -86,15 +86,22 @@ async def explain(request: PredictionRequest):
         if hasattr(X_transformed, "toarray"):
             X_transformed = X_transformed.toarray()
             
-        shap_values = EXPLAINER(X_transformed).values
+        shap_results = EXPLAINER(X_transformed).values
         
         # Extract features for structured JSON response
         feature_names = preprocessor.get_feature_names_out()
         explanations = []
-        for i in range(len(shap_values)):
-            row_shap = shap_values[i]
-            # Map contribution to feature
-            contribs = {feature_names[j]: float(row_shap[j]) for j in range(len(feature_names))}
+        for i in range(len(shap_results)):
+            row_shap = shap_results[i]
+            # Map contribution to feature. Handle binary/multiclass multi-dim arrays.
+            contribs = {}
+            for j in range(len(feature_names)):
+                val = row_shap[j]
+                # If multidimensional (e.g. binary output [negative, positive]), grab the positive contrib
+                if hasattr(val, "__len__") and len(val) > 1:
+                    contribs[feature_names[j]] = float(val[-1])
+                else:
+                    contribs[feature_names[j]] = float(val)
             explanations.append(contribs)
             
         # Update cache
