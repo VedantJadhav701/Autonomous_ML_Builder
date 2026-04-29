@@ -1,0 +1,85 @@
+{
+  "features": {
+    "age": {
+      "type": "number",
+      "values": null,
+      "sample": 23.0
+    },
+    "income": {
+      "type": "number",
+      "values": null,
+      "sample": 11750.0
+    },
+    "home_ownership": {
+      "type": "text",
+      "values": [
+        "RENT",
+        "OWN",
+        "MORTGAGE"
+      ],
+      "sample": "RENT"
+    },
+    "emp_length": {
+      "type": "number",
+      "values": null,
+      "sample": 4.0
+    },
+    "loan_intent": {
+      "type": "text",
+      "values": [
+        "PERSONAL",
+        "EDUCATION",
+        "MEDICAL",
+        "VENTURE",
+        "HOMEIMPROVEMENT",
+        "EYE_DRY"
+      ],
+      "sample": "EDUCATION"
+    },
+    "loan_grade": {
+      "type": "text",
+      "values": [
+        "D",
+        "B",
+        "C",
+        "A",
+        "E",
+        "F"
+      ],
+      "sample": "A"
+    },
+    "loan_amnt": {
+      "type": "number",
+      "values": null,
+      "sample": 2500.0
+    },
+    "loan_int_rate": {
+      "type": "number",
+      "values": null,
+      "sample": 11.59
+    },
+    "loan_percent_income": {
+      "type": "number",
+      "values": null,
+      "sample": 0.25
+    },
+    "cb_person_default_on_file": {
+      "type": "text",
+      "values": [
+        "Y",
+        "N"
+      ],
+      "sample": "N"
+    },
+    "cb_person_cred_hist_length": {
+      "type": "number",
+      "values": null,
+      "sample": 3.0
+    }
+  },
+  "task_type": "classification",
+  "target_col": "loan_status",
+  "model_name": "RandomForestClassifier",
+  "n_samples": 36,
+  "n_features": 11
+}
