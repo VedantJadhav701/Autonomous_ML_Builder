@@ -48,9 +48,11 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
         {/* Sidebar Header */}
         <div className="h-16 flex items-center px-6 border-b border-white/5 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-sm font-black italic shadow-lg shadow-blue-500/10">
-              A
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="AutoStack Logo" 
+              className="w-8 h-8 object-contain" 
+            />
             {!collapsed && <span className="font-black italic tracking-tight text-lg">AutoStack</span>}
           </div>
         </div>

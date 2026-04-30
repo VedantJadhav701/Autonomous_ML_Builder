@@ -101,7 +101,7 @@ export default function AppDashboard() {
         <div style={{ maxWidth: 1100, width: "100%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${C.blue}, #9333ea)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16 }}>A</div>
+              <img src="/logo.png" alt="AutoStack" style={{ width: 28, height: 28, objectContain: "contain" }} />
               <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>AutoStack</span>
             </div>
             <span style={{ color: C.border }}>|</span>
