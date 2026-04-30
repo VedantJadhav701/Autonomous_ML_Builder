@@ -1,3 +1,13 @@
+---
+title: AutoStack Engine
+emoji: 🚀
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # Autonomous ML Builder 🚀
 
 **Production-grade, resource-constrained AutoML for Tabular Data.**
