@@ -16,6 +16,27 @@ class DataProfiler:
     """Intelligently profiles and optimizes DataFrames for machine learning pipelines."""
 
     @staticmethod
+    def suggest_target_column(df: pd.DataFrame) -> str:
+        """Heuristically guesses the target column (the 'y' variable)."""
+        cols_lower = [str(c).lower() for c in df.columns]
+        
+        # 1. Exact matches for common target names (highest priority)
+        priority_keywords = ['target', 'label', 'y', 'class', 'status', 'default']
+        for kw in priority_keywords:
+            if kw in cols_lower:
+                return df.columns[cols_lower.index(kw)]
+                
+        # 2. Substring matches for prediction targets
+        substring_keywords = ['price', 'output', 'prediction', 'result', 'revenue', 'score', 'outcome', 'value']
+        for kw in substring_keywords:
+            for i, col in enumerate(cols_lower):
+                if kw in col:
+                    return df.columns[i]
+        
+        # 3. Default to the last column (Standard ML practice)
+        return df.columns[-1]
+
+    @staticmethod
     def extract_datetime_features(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
         """
         Detects date-like strings and extracts numeric features (Year, Month, Day, DayOfWeek).

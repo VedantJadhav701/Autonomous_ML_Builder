@@ -253,6 +253,22 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         JOBS[job_id].update({"status": "failed", "error": str(e), "progress": -1})
 
 
+# ── Utility endpoints ────────────────────────────────────────────────────────
+@app.post("/analyze-csv")
+async def analyze_csv(file: UploadFile = File(...)):
+    """Quickly scans a CSV to suggest the target column."""
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
+    
+    try:
+        df = pd.read_csv(io.BytesIO(await file.read()), nrows=100)
+        from src.data_profiler import DataProfiler
+        suggested = DataProfiler.suggest_target_column(df)
+        return {"suggested_target": suggested, "columns": list(df.columns)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Training endpoints ───────────────────────────────────────────────────────
 
 @app.post("/train")

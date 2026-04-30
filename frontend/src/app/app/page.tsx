@@ -168,6 +168,8 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
     setStep("upload");
   };
 
+  const [suggestedTarget, setSuggestedTarget] = useState<string | null>(null);
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -187,7 +189,23 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
       setCsvHeaders(headers);
       setCsvRows(rows);
       setCsvBytes(f);
-      setTargetCol(headers[headers.length - 1]); // sensible default: last column
+      
+      // Autonomous Target Detection
+      const form = new FormData();
+      form.append("file", f);
+      fetch(`${API_BASE}/analyze-csv`, { method: "POST", body: form })
+        .then(r => r.json())
+        .then(data => {
+          if (data.suggested_target) {
+            setSuggestedTarget(data.suggested_target);
+            setTargetCol(data.suggested_target);
+          } else {
+            setTargetCol(headers[headers.length - 1]);
+          }
+        })
+        .catch(() => {
+          setTargetCol(headers[headers.length - 1]);
+        });
     };
     reader.readAsText(f);
   };
@@ -307,7 +325,11 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <label style={labelStyle}>Target Column (what to predict)</label>
               <select value={targetCol} onChange={e => setTargetCol(e.target.value)} style={selectStyle}>
-                {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                {csvHeaders.map(h => (
+                  <option key={h} value={h}>
+                    {h} {h === suggestedTarget ? "★ (Recommended)" : ""}
+                  </option>
+                ))}
               </select>
             </div>
 
