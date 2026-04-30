@@ -123,7 +123,7 @@ export default function TrainPage() {
               </div>
            </div>
            
-           <div className="space-y-4">
+            <div className="space-y-4">
               <div className="p-4 rounded-2xl border border-white/5 bg-[#0d0d0d] space-y-3">
                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Active Architecture</p>
                  <div className="space-y-2">
@@ -133,6 +133,38 @@ export default function TrainPage() {
                         <span className="text-xs font-bold text-zinc-400 italic">{m}</span>
                       </div>
                     ))}
+                 </div>
+              </div>
+
+              {/* Advanced / Locked Features */}
+              <div className="p-6 rounded-2xl border border-blue-500/10 bg-blue-600/[0.02] space-y-4">
+                 <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500/60">Advanced Architectures</p>
+                    <div className="px-2 py-0.5 rounded-md bg-blue-600/10 border border-blue-600/20 text-[8px] font-black uppercase tracking-widest text-blue-500">Enterprise</div>
+                 </div>
+                 <div className="space-y-3 opacity-40">
+                    <div className="flex items-center justify-between group cursor-not-allowed">
+                       <span className="text-xs font-bold text-zinc-500 italic">Deep Neural Networks</span>
+                       <div className="w-3 h-3 border border-white/10 rounded" />
+                    </div>
+                    <div className="flex items-center justify-between group cursor-not-allowed">
+                       <span className="text-xs font-bold text-zinc-500 italic">GPU Accelerated (H100)</span>
+                       <div className="w-3 h-3 border border-white/10 rounded" />
+                    </div>
+                    <div className="flex items-center justify-between group cursor-not-allowed">
+                       <span className="text-xs font-bold text-zinc-500 italic">Custom Stack Logic</span>
+                       <div className="w-3 h-3 border border-white/10 rounded" />
+                    </div>
+                 </div>
+                 <div className="pt-2">
+                    <p className="text-[9px] font-bold text-zinc-500 italic leading-relaxed mb-4">Need higher accuracy or processing >10k rows? Unlock the Enterprise Engine.</p>
+                    <a 
+                      href="https://calendly.com/vedantjadhav1414/30min" 
+                      target="_blank"
+                      className="flex items-center justify-center w-full h-10 bg-blue-600/10 border border-blue-600/20 rounded-xl text-[10px] font-black italic text-blue-500 hover:bg-blue-600 hover:text-white transition-all shadow-xl shadow-blue-600/5"
+                    >
+                      Book a Strategy Session
+                    </a>
                  </div>
               </div>
 
@@ -147,7 +179,7 @@ export default function TrainPage() {
                    </div>
                 </div>
               )}
-           </div>
+            </div>
         </div>
       </div>
     </div>

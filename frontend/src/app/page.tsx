@@ -192,6 +192,86 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Scale Section */}
+      <section className="py-24 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-blue-600/5 blur-[120px] rounded-full -z-10" />
+        <div className="max-w-5xl mx-auto p-12 md:p-20 rounded-[48px] border border-white/5 bg-white/[0.01] backdrop-blur-3xl text-center space-y-8 relative">
+           <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter">Hit a wall with standard models? <br /><span className="text-blue-500">Let's build something bespoke.</span></h2>
+           <p className="max-w-2xl mx-auto text-zinc-500 font-medium italic">For organizations with massive datasets, strict privacy requirements, or complex forecasting needs, our engineering team builds custom pipelines directly into your infrastructure.</p>
+           <a 
+             href="https://calendly.com/vedantjadhav1414/30min" 
+             target="_blank"
+             className="inline-flex items-center gap-3 px-10 h-16 bg-blue-600 text-white rounded-2xl text-lg font-black italic hover:bg-blue-500 transition-all shadow-2xl shadow-blue-600/20 active:scale-95 group"
+           >
+             Talk to an AI Architect <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+           </a>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-32 px-6 border-t border-white/5">
+        <div className="max-w-7xl mx-auto space-y-20">
+          <div className="text-center space-y-4">
+             <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">Engineered for Every Scale</h2>
+             <p className="text-zinc-500 font-medium italic uppercase text-xs tracking-widest">Simple, transparent tiers for researchers and enterprises.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+             {/* Community Tier */}
+             <div className="p-12 rounded-[40px] border border-white/5 bg-white/[0.01] space-y-8 hover:border-white/10 transition-colors group">
+                <div className="space-y-2">
+                   <h3 className="text-2xl font-black italic tracking-tight">Community</h3>
+                   <p className="text-sm text-zinc-500 font-medium italic">For rapid prototyping and research.</p>
+                </div>
+                <div className="flex items-baseline gap-1">
+                   <span className="text-5xl font-black italic tracking-tighter">$0</span>
+                   <span className="text-zinc-600 font-bold uppercase text-[10px] tracking-widest">/ month</span>
+                </div>
+                <ul className="space-y-4 pt-4 border-t border-white/5">
+                   {[
+                     "Max 10,000 Rows / Job",
+                     "5MB File Upload Limit",
+                     "Standard Gradient Boosting",
+                     "Community Support",
+                     "Local In-Memory Persistence"
+                   ].map(f => (
+                     <li key={f} className="flex items-center gap-3 text-xs font-bold text-zinc-400">
+                        <CheckCircle2 className="w-4 h-4 text-blue-500" /> {f}
+                     </li>
+                   ))}
+                </ul>
+                <Link href="/login" className="flex items-center justify-center w-full h-14 bg-white/5 border border-white/5 rounded-2xl text-sm font-black italic text-zinc-400 group-hover:text-white group-hover:bg-white/10 transition-all">Launch Console</Link>
+             </div>
+
+             {/* Enterprise Tier */}
+             <div className="p-12 rounded-[40px] border border-blue-500/20 bg-blue-600/[0.02] space-y-8 relative overflow-hidden group">
+                <div className="absolute top-6 right-6 px-3 py-1 rounded-full bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest animate-pulse">Production Ready</div>
+                <div className="space-y-2">
+                   <h3 className="text-2xl font-black italic tracking-tight">Enterprise</h3>
+                   <p className="text-sm text-zinc-500 font-medium italic">For high-performance production scale.</p>
+                </div>
+                <div className="flex items-baseline gap-1">
+                   <span className="text-5xl font-black italic tracking-tighter">Custom</span>
+                </div>
+                <ul className="space-y-4 pt-4 border-t border-white/5">
+                   {[
+                     "Unlimited Data Processing",
+                     "No File Size Constraints",
+                     "Custom Deep Learning / XGBoost",
+                     "Dedicated Cloud Engine",
+                     "Full Database Integration"
+                   ].map(f => (
+                     <li key={f} className="flex items-center gap-3 text-xs font-bold text-zinc-300">
+                        <CheckCircle2 className="w-4 h-4 text-blue-500" /> {f}
+                     </li>
+                   ))}
+                </ul>
+                <a href="https://calendly.com/vedantjadhav1414/30min" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full h-14 bg-blue-600 rounded-2xl text-sm font-black italic text-white shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all">Book a Demo</a>
+             </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Bento */}
       <section id="features" className="py-32 px-6 bg-[#0c0c0c] border-t border-white/5">
         <div className="max-w-7xl mx-auto space-y-16">
