@@ -10,9 +10,11 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl flex items-center px-6 md:px-12">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-sm font-black italic shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
-              A
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="AutoStack Logo" 
+              className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" 
+            />
             <span className="text-lg font-black italic tracking-tight group-hover:text-blue-400 transition-colors">AutoStack</span>
           </Link>
           
@@ -136,7 +138,7 @@ export default function LandingPage() {
       <footer className="py-12 px-6 border-t border-white/5 bg-black/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
-             <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center text-[10px] font-black italic">A</div>
+             <img src="/logo.png" alt="AutoStack" className="w-6 h-6 object-contain" />
              <span className="text-xs font-black italic tracking-tighter text-zinc-500">AutoStack v2.0.0</span>
           </div>
           
