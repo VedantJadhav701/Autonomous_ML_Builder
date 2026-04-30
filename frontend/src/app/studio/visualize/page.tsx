@@ -63,7 +63,10 @@ export default function VisualizePage() {
 
   const handleShare = () => {
     if (!jobId) return;
-    const reportUrl = `${window.location.origin}/report/${jobId}`;
+    const baseUrl = window.location.hostname === "localhost" 
+      ? "https://autostack-ai.vercel.app" 
+      : window.location.origin;
+    const reportUrl = `${baseUrl}/report/${jobId}`;
     navigator.clipboard.writeText(reportUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
