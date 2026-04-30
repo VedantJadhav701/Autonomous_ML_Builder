@@ -13,6 +13,8 @@ export const metadata: Metadata = {
     "Production-grade ML lifecycle system with drift detection, SHAP explainability, and adaptive pipeline design.",
 };
 
+import { Analytics } from "@vercel/analytics/next";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,6 +24,7 @@ export default function RootLayout({
     <html lang="en" className={inter.className}>
       <body className="bg-[#0a0a0a] text-white antialiased min-h-screen">
         {children}
+        <Analytics />
       </body>
     </html>
   );
