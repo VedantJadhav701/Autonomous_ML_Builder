@@ -105,6 +105,19 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
   const [trainErr, setTrainErr] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const handleReset = () => {
+    setCsvBytes(null);
+    setCsvHeaders([]);
+    setCsvRows([]);
+    setTargetCol("");
+    setJobId(null);
+    setJobStatus(null);
+    setResults(null);
+    setTrainErr(null);
+    if (pollRef.current) clearInterval(pollRef.current);
+    setStep("upload");
+  };
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -324,6 +337,7 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <GhostBtn label="⟲ Train New Dataset" onClick={handleReset} />
               <DownloadBtn format="joblib" modelName={results.model_name} taskType={results.task_type} />
               <DownloadBtn format="pkl" modelName={results.model_name} taskType={results.task_type} />
               <PrimaryBtn label="⚡ Switch to Inference →" onClick={onSwitchToInfer} />
