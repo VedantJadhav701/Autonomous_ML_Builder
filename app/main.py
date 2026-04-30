@@ -58,7 +58,7 @@ def _set_stage(job_id: str, step_idx: int):
     })
 
 
-def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str):
+def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str, aggressive: bool = False):
     """Background training thread — robust 6-stage pipeline for any dataset."""
     global PIPELINE, EXPLAINER, MODEL_METADATA
 
@@ -123,7 +123,8 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
         _candidate = ModelSelectionEngine.get_model_candidate(
-            n_samples, n_features, is_sparse=False, is_regression=is_regression
+            n_samples, n_features, is_sparse=False, is_regression=is_regression,
+            aggressive=aggressive
         )
         is_tree = isinstance(_candidate, (LGBMClassifier, LGBMRegressor,
                                           RandomForestClassifier, RandomForestRegressor))
@@ -163,7 +164,8 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
             X, y, test_size=0.2, random_state=42, stratify=stratify_arg
         )
         tuned_pipeline = HyperparameterTuner.tune(
-            unified_pipeline, param_grid, X_train, y_train, is_regression=is_regression
+            unified_pipeline, param_grid, X_train, y_train, 
+            is_regression=is_regression, aggressive=aggressive
         )
 
         # ── Stage 5: Evaluate ────────────────────────────────────────────────
@@ -241,6 +243,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
                 "feature_importance": feature_importance,
                 "n_samples": n_samples,
                 "n_features": n_features,
+                "aggressive": aggressive,
             },
         })
 
@@ -257,6 +260,7 @@ async def start_training(
     file: UploadFile = File(...),
     target_column: str = Form(...),
     task_type: str = Form("auto"),
+    aggressive: bool = Form(False),
 ):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
@@ -269,7 +273,7 @@ async def start_training(
                     "status": "queued", "result": None, "error": None}
     thread = threading.Thread(
         target=_run_training,
-        args=(job_id, csv_bytes, target_column, task_type),
+        args=(job_id, csv_bytes, target_column, task_type, aggressive),
         daemon=True,
     )
     thread.start()

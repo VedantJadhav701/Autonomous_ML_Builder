@@ -21,6 +21,7 @@ class HyperparameterTuner:
         y: pd.Series,
         llm_overrides: Dict[str, Any] = None,
         is_regression: bool = False,
+        aggressive: bool = False,
     ) -> Pipeline:
         """
         Runs bounded Optuna optimization to find the best hyperparameters.
@@ -28,7 +29,10 @@ class HyperparameterTuner:
         Returns the completely refitted pipeline with best parameters.
         """
         llm_overrides = llm_overrides or {}
-        logger.info(f"Starting Optuna tuning bounded by {SystemConfig.OPTUNA_N_TRIALS} trials or {SystemConfig.OPTUNA_TIMEOUT_SEC}s timeout.")
+        n_trials = 50 if aggressive else SystemConfig.OPTUNA_N_TRIALS
+        timeout  = 600 if aggressive else SystemConfig.OPTUNA_TIMEOUT_SEC
+        
+        logger.info(f"Starting Optuna tuning ({'AGGRESSIVE' if aggressive else 'STANDARD'}). Bounded by {n_trials} trials or {timeout}s.")
 
         # If no grid provided, get default for the model
         if not param_grid:
@@ -64,8 +68,8 @@ class HyperparameterTuner:
         study = optuna.create_study(direction="maximize")
         study.optimize(
             objective,
-            n_trials=SystemConfig.OPTUNA_N_TRIALS,
-            timeout=SystemConfig.OPTUNA_TIMEOUT_SEC
+            n_trials=n_trials,
+            timeout=timeout
         )
 
         logger.info(f"Optimal Score from Tuning: {study.best_value:.4f}")

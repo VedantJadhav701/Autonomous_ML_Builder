@@ -1,135 +1,86 @@
 {
   "features": {
-    "PassengerId": {
+    "age": {
       "type": "number",
       "values": null,
-      "sample": 446.0
+      "sample": 23.0
     },
-    "Survived": {
+    "income": {
       "type": "number",
       "values": null,
-      "sample": 0.0
+      "sample": 11750.0
     },
-    "Pclass": {
+    "home_ownership": {
+      "type": "text",
+      "values": [
+        "RENT",
+        "OWN",
+        "MORTGAGE"
+      ],
+      "sample": "RENT"
+    },
+    "emp_length": {
+      "type": "number",
+      "values": null,
+      "sample": 4.0
+    },
+    "loan_intent": {
+      "type": "text",
+      "values": [
+        "PERSONAL",
+        "EDUCATION",
+        "MEDICAL",
+        "VENTURE",
+        "HOMEIMPROVEMENT",
+        "EYE_DRY"
+      ],
+      "sample": "EDUCATION"
+    },
+    "loan_grade": {
+      "type": "text",
+      "values": [
+        "D",
+        "B",
+        "C",
+        "A",
+        "E",
+        "F"
+      ],
+      "sample": "A"
+    },
+    "loan_amnt": {
+      "type": "number",
+      "values": null,
+      "sample": 2500.0
+    },
+    "loan_int_rate": {
+      "type": "number",
+      "values": null,
+      "sample": 11.59
+    },
+    "loan_percent_income": {
+      "type": "number",
+      "values": null,
+      "sample": 0.25
+    },
+    "cb_person_default_on_file": {
+      "type": "text",
+      "values": [
+        "Y",
+        "N"
+      ],
+      "sample": "N"
+    },
+    "cb_person_cred_hist_length": {
       "type": "number",
       "values": null,
       "sample": 3.0
-    },
-    "Name": {
-      "type": "text",
-      "values": [
-        "Braund, Mr. Owen Harris",
-        "Cumings, Mrs. John Bradley (Florence Briggs Thayer)",
-        "Heikkinen, Miss. Laina",
-        "Futrelle, Mrs. Jacques Heath (Lily May Peel)",
-        "Allen, Mr. William Henry",
-        "Moran, Mr. James",
-        "McCarthy, Mr. Timothy J",
-        "Palsson, Master. Gosta Leonard",
-        "Johnson, Mrs. Oscar W (Elisabeth Vilhelmina Berg)",
-        "Nasser, Mrs. Nicholas (Adele Achem)",
-        "Sandstrom, Miss. Marguerite Rut",
-        "Bonnell, Miss. Elizabeth",
-        "Saundercock, Mr. William Henry",
-        "Andersson, Mr. Anders Johan",
-        "Vestrom, Miss. Hulda Amanda Adolfina",
-        "Hewlett, Mrs. (Mary D Kingcome) ",
-        "Rice, Master. Eugene",
-        "Williams, Mr. Charles Eugene",
-        "Vander Planke, Mrs. Julius (Emelia Maria Vandemoortele)",
-        "Masselmani, Mrs. Fatima"
-      ],
-      "sample": "Abbing, Mr. Anthony"
-    },
-    "Sex": {
-      "type": "text",
-      "values": [
-        "male",
-        "female"
-      ],
-      "sample": "male"
-    },
-    "Age": {
-      "type": "number",
-      "values": null,
-      "sample": 28.0
-    },
-    "SibSp": {
-      "type": "number",
-      "values": null,
-      "sample": 0.0
-    },
-    "Parch": {
-      "type": "number",
-      "values": null,
-      "sample": 0.0
-    },
-    "Ticket": {
-      "type": "text",
-      "values": [
-        "A/5 21171",
-        "PC 17599",
-        "STON/O2. 3101282",
-        "113803",
-        "373450",
-        "330877",
-        "17463",
-        "349909",
-        "347742",
-        "237736",
-        "PP 9549",
-        "113783",
-        "A/5. 2151",
-        "347082",
-        "350406",
-        "248706",
-        "382652",
-        "244373",
-        "345763",
-        "2649"
-      ],
-      "sample": "1601"
-    },
-    "Fare": {
-      "type": "number",
-      "values": null,
-      "sample": 14.4542
-    },
-    "Cabin": {
-      "type": "text",
-      "values": [
-        "C85",
-        "C123",
-        "E46",
-        "G6",
-        "C103",
-        "D56",
-        "A6",
-        "C23 C25 C27",
-        "B78",
-        "D33",
-        "B30",
-        "C52",
-        "B28",
-        "C83",
-        "F33",
-        "F G73",
-        "E31",
-        "A5",
-        "D10 D12",
-        "D26"
-      ],
-      "sample": "B96 B98"
     }
   },
   "task_type": "classification",
-  "target_col": "Embarked",
+  "target_col": "loan_status",
   "model_name": "RandomForestClassifier",
-  "n_samples": 891,
-  "n_features": 8,
-  "target_mapping": {
-    "0": "C",
-    "1": "Q",
-    "2": "S"
-  }
+  "n_samples": 36,
+  "n_features": 11,
+  "target_mapping": null
 }

@@ -11,11 +11,45 @@ class ModelSelectionEngine:
     """Dynamically selects the optimal model and its base parameters based on data sparsity, size and task."""
 
     @staticmethod
-    def get_model_candidate(n_samples: int, n_features: int, is_sparse: bool, is_regression: bool = False) -> Any:
+    def get_model_candidate(n_samples: int, n_features: int, is_sparse: bool, is_regression: bool = False, aggressive: bool = False) -> Any:
         """Selects a base model candidate for the dataset traits."""
         from sklearn.ensemble import StackingClassifier, StackingRegressor
         from sklearn.linear_model import LogisticRegression, Ridge
         
+        # Aggressive Mode: Use XGBoost and CatBoost in the stack
+        if aggressive:
+            from xgboost import XGBClassifier, XGBRegressor
+            from catboost import CatBoostClassifier, CatBoostRegressor
+            
+            if is_regression:
+                logger.info("🔥 AGGRESSIVE MODE: Building Elite Regression Stack (RF + LGBM + XGB + CatBoost)")
+                estimators = [
+                    ('rf', RandomForestRegressor(n_estimators=100, n_jobs=-1, random_state=42)),
+                    ('lgbm', LGBMRegressor(n_estimators=100, n_jobs=-1, random_state=42, verbose=-1)),
+                    ('xgb', XGBRegressor(n_estimators=100, n_jobs=-1, random_state=42, verbosity=0)),
+                    ('cat', CatBoostRegressor(n_estimators=100, random_state=42, verbose=0))
+                ]
+                return StackingRegressor(
+                    estimators=estimators,
+                    final_estimator=Ridge(),
+                    cv=3,
+                    n_jobs=-1
+                )
+            else:
+                logger.info("🔥 AGGRESSIVE MODE: Building Elite Classification Stack (RF + LGBM + XGB + CatBoost)")
+                estimators = [
+                    ('rf', RandomForestClassifier(n_estimators=100, n_jobs=-1, random_state=42, class_weight='balanced')),
+                    ('lgbm', LGBMClassifier(n_estimators=100, n_jobs=-1, random_state=42, verbose=-1, class_weight='balanced')),
+                    ('xgb', XGBClassifier(n_estimators=100, n_jobs=-1, random_state=42, verbosity=0)),
+                    ('cat', CatBoostClassifier(n_estimators=100, random_state=42, verbose=0))
+                ]
+                return StackingClassifier(
+                    estimators=estimators,
+                    final_estimator=LogisticRegression(),
+                    cv=3,
+                    n_jobs=-1
+                )
+
         if is_regression:
             if n_samples < 1000:
                 logger.info("Selecting RandomForestRegressor for small regression.")
@@ -70,7 +104,9 @@ class ModelSelectionEngine:
         if isinstance(model, (VotingClassifier, VotingRegressor, StackingClassifier, StackingRegressor)):
             return {
                 'model__rf__n_estimators': [50, 100],
-                'model__lgbm__learning_rate': [0.05, 0.1]
+                'model__lgbm__learning_rate': [0.05, 0.1],
+                'model__xgb__max_depth': [3, 6],
+                'model__cat__depth': [4, 6]
             }
         
         if isinstance(model, LogisticRegression):

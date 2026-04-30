@@ -198,7 +198,7 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
     if (f) handleFile({ target: { files: [f] } } as any);
   };
 
-  const startTraining = async () => {
+  const startTraining = async (aggressive: boolean = false) => {
     if (!csvBytes || !targetCol) return;
     setTrainErr(null);
     setStep("progress");
@@ -207,6 +207,7 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
     form.append("file", csvBytes);
     form.append("target_column", targetCol);
     form.append("task_type", taskType);
+    form.append("aggressive", aggressive.toString());
 
     try {
       const res = await fetch(`${API_BASE}/train`, { method: "POST", body: form });
@@ -386,7 +387,12 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
                 </p>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              {results && !results.aggressive && (
+                ((results.metrics?.F1_Score != null && results.metrics.F1_Score < 0.85) || 
+                 (results.metrics?.R2_Score != null && results.metrics.R2_Score < 0.85))
+              ) && <BoostBtn onClick={() => startTraining(true)} />}
+              
               <GhostBtn label="⟲ Train New Dataset" onClick={handleReset} />
               <DownloadBtn format="joblib" modelName={results.model_name} taskType={results.task_type} />
               <DownloadBtn format="pkl" modelName={results.model_name} taskType={results.task_type} />
@@ -821,6 +827,17 @@ function PrimaryBtn({ label, onClick, disabled }: { label: string; onClick: () =
     <button onClick={onClick} disabled={disabled} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ height: 44, padding: "0 24px", backgroundColor: disabled ? "rgba(255,255,255,0.05)" : hov ? "#60a5fa" : C.blue, border: "none", borderRadius: 12, color: disabled ? C.dim : "#fff", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: hov && !disabled ? "0 8px 24px rgba(59,130,246,0.3)" : "none", transform: hov && !disabled ? "translateY(-1px)" : "translateY(0)" }}>
       {label}
+    </button>
+  );
+}
+
+function BoostBtn({ onClick }: { onClick: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ height: 44, padding: "0 24px", backgroundColor: hov ? "#f97316" : "#ea580c", border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", transition: "all 0.2s", boxShadow: hov ? "0 8px 24px rgba(234,88,12,0.4)" : "none", transform: hov ? "translateY(-1px)" : "translateY(0)", display: "flex", alignItems: "center", gap: 8 }}>
+      <Activity style={{ width: 18, height: 18 }} />
+      🚀 Boost Accuracy
     </button>
   );
 }
