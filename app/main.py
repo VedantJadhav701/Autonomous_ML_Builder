@@ -22,6 +22,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "AutoStack Engine",
+        "version": "2.0.0",
+        "message": "Autonomous ML Builder Backend is running. Use /docs for API documentation."
+    }
+
 # ── Global inference state (hot-swappable) ──────────────────────────────────
 try:
     PIPELINE, EXPLAINER = ModelArtifactTracker.load_artifacts()
