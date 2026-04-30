@@ -27,13 +27,17 @@ const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/studio" },
   { label: "Clean Data", icon: Database, href: "/studio/clean" },
   { label: "Train Model", icon: Cpu, href: "/studio/train" },
+  { label: "Results", icon: BarChart3, href: "/studio/visualize" },
   { label: "Inference", icon: Zap, href: "/studio/inference" },
-  { label: "Visualize", icon: BarChart3, href: "/studio/visualize" },
 ];
 
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Calculate next step
+  const currentIndex = NAV_ITEMS.findIndex(item => item.href === pathname);
+  const nextStep = currentIndex >= 0 && currentIndex < NAV_ITEMS.length - 1 ? NAV_ITEMS[currentIndex + 1] : null;
 
   return (
     <StudioProvider>
@@ -104,7 +108,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Global Header */}
         <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-[#0a0a0a]/80 backdrop-blur-md z-10 shrink-0">
           <div className="flex items-center gap-2">
@@ -129,6 +133,20 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           {children}
         </div>
+
+        {/* Next Step Button */}
+        {nextStep && (
+          <Link 
+            href={nextStep.href}
+            className="fixed bottom-10 right-10 z-50 flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black italic shadow-2xl shadow-blue-600/40 transition-all hover:scale-105 active:scale-95 group"
+          >
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] uppercase tracking-widest opacity-50 not-italic">Next Step</span>
+              <span>{nextStep.label}</span>
+            </div>
+            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </Link>
+        )}
       </main>
     </div>
     </StudioProvider>
