@@ -52,35 +52,59 @@ export default function StudioDashboard() {
 
       {/* ── Top Section: History & Metrics ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Dataset History */}
-        <div className="lg:col-span-2 p-8 rounded-[40px] border border-white/5 bg-white/[0.01] space-y-6">
+        {/* Recent Projects Table */}
+        <div className="lg:col-span-2 p-10 rounded-[40px] border border-white/5 bg-white/[0.01] space-y-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Database className="w-5 h-5 text-blue-500" />
-              <h3 className="font-bold italic">Dataset History</h3>
+              <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500">
+                <Activity className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black italic tracking-tight">Recent Projects & Metrics</h3>
+                <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-0.5">Automated ML Lifecycle History</p>
+              </div>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Recent Uploads</span>
+            <button className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">View All</button>
           </div>
           
-          <div className="space-y-3">
-            {[
-              { name: "customer_churn_v2.csv", size: "14.2 MB", date: "2m ago", status: "Cleaned" },
-              { name: "options_pricing_v1.csv", size: "8.1 MB", date: "1h ago", status: "Training" },
-              { name: "user_engagement.csv", size: "22.5 MB", date: "4h ago", status: "Analyzed" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors group cursor-pointer">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#0a0a0a] border border-white/5 flex items-center justify-center">
-                    <Database className="w-4 h-4 text-zinc-500 group-hover:text-blue-400 transition-colors" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-zinc-200">{item.name}</p>
-                    <p className="text-[10px] font-medium text-zinc-600 italic">{item.size} · {item.date}</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider text-blue-400">{item.status}</span>
-              </div>
-            ))}
+          <div className="overflow-hidden border border-white/5 rounded-3xl">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-white/[0.02] border-b border-white/5">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Dataset</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center">Accuracy</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {[
+                  { name: "customer_churn_v2.csv", acc: "92.4%", status: "Completed", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                  { name: "options_pricing_v1.csv", acc: "98.1%", status: "Training", color: "text-blue-500", bg: "bg-blue-500/10" },
+                  { name: "user_engagement.csv", acc: "88.7%", status: "Analyzed", color: "text-purple-500", bg: "bg-purple-500/10" },
+                  { name: "sales_forecast_q4.csv", acc: "94.2%", status: "Completed", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                ].map((item, i) => (
+                  <tr key={i} className="group hover:bg-white/[0.02] transition-colors cursor-pointer">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-blue-400 transition-colors">
+                          <Database className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-sm font-bold text-zinc-300 group-hover:text-white transition-colors">{item.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <span className="text-sm font-black italic tracking-tighter text-white">{item.acc}</span>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${item.bg} border border-white/5`}>
+                        <div className={`w-1 h-1 rounded-full ${item.color} ${item.status === 'Training' ? 'animate-pulse' : ''}`} />
+                        <span className={`text-[10px] font-black uppercase tracking-wider ${item.color}`}>{item.status}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
