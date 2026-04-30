@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink, Activity, Cpu, Shield, Zap, Database, BarChart3, ChevronRight, Globe, Code, Box } from "lucide-react";
 
 // Dynamically import Lottie to prevent SSR issues
@@ -25,6 +27,19 @@ export default function LandingPage() {
     fetch(analysisAnim).then(res => res.json()).then(setAnalysisData);
     fetch(aiAnim).then(res => res.json()).then(setAiData);
   }, []);
+
+  const fadeIn = {
+    initial: { opacity: 0, y: 30 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true },
+    transition: { duration: 0.8, ease: "easeOut" }
+  };
+
+  const staggerContainer = {
+    initial: {},
+    whileInView: { transition: { staggerChildren: 0.15 } },
+    viewport: { once: true }
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-blue-500/30 overflow-x-hidden relative">
@@ -65,7 +80,12 @@ export default function LandingPage() {
         <div className="absolute bottom-0 right-1/4 w-[600px] h-[500px] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none -z-10 animate-pulse" />
 
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-          <div className="space-y-10 relative z-10 text-center lg:text-left">
+          <motion.div 
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="space-y-10 relative z-10 text-center lg:text-left"
+          >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600/5 border border-blue-600/20 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mx-auto lg:mx-0">
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_12px_#3b82f6]" />
               Enterprise AI Intelligence v2.0
@@ -98,10 +118,15 @@ export default function LandingPage() {
                 Book a Demo
               </a>
             </div>
-          </div>
+          </motion.div>
 
           {/* Hero Animation */}
-          <div className="relative">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, rotateY: 20 }}
+            animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="relative"
+          >
              <div className="absolute inset-0 bg-blue-600/20 blur-[100px] rounded-full animate-pulse" />
              <div className="relative p-6 rounded-[48px] border border-white/5 bg-white/[0.01] backdrop-blur-3xl shadow-2xl">
                 {heroData && (
@@ -119,21 +144,21 @@ export default function LandingPage() {
              <div className="absolute -bottom-10 -left-10 p-4 rounded-3xl bg-[#0a0a0a] border border-white/10 shadow-2xl animate-pulse">
                 <Activity className="w-6 h-6 text-blue-500" />
              </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Workflow Section */}
       <section id="workflow" className="py-32 px-6 relative border-t border-white/5">
         <div className="max-w-7xl mx-auto space-y-24">
-          <div className="text-center space-y-4">
+          <motion.div {...fadeIn} className="text-center space-y-4">
             <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">The Guided Pipeline</h2>
             <p className="text-zinc-500 font-medium max-w-2xl mx-auto italic uppercase text-xs tracking-widest">From raw ingestion to production inference in three tactical stages.</p>
-          </div>
+          </motion.div>
 
           <div className="space-y-40">
             {/* Step 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div {...fadeIn} className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div className="space-y-8 order-2 lg:order-1">
                  <div className="w-16 h-16 rounded-3xl bg-blue-600/10 flex items-center justify-center text-blue-500 font-black italic text-2xl border border-blue-600/20">01</div>
                  <h3 className="text-4xl font-black italic tracking-tight">Smart Data Ingestion</h3>
@@ -146,14 +171,14 @@ export default function LandingPage() {
                     ))}
                  </ul>
               </div>
-              <div className="p-10 rounded-[40px] bg-white/[0.01] border border-white/5 order-1 lg:order-2">
+              <div className="p-10 rounded-[40px] bg-white/[0.01] border border-white/5 order-1 lg:order-2 hover:bg-white/[0.02] transition-colors">
                  {uploadData && <Lottie animationData={uploadData} loop={true} className="w-full h-auto max-h-[350px]" />}
               </div>
-            </div>
+            </motion.div>
 
             {/* Step 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              <div className="p-10 rounded-[40px] bg-white/[0.01] border border-white/5">
+            <motion.div {...fadeIn} className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+              <div className="p-10 rounded-[40px] bg-white/[0.01] border border-white/5 hover:bg-white/[0.02] transition-colors">
                  {analysisData && <Lottie animationData={analysisData} loop={true} className="w-full h-auto max-h-[350px]" />}
               </div>
               <div className="space-y-8">
@@ -168,10 +193,10 @@ export default function LandingPage() {
                     ))}
                  </ul>
               </div>
-            </div>
+            </motion.div>
 
             {/* Step 3 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div {...fadeIn} className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div className="space-y-8 order-2 lg:order-1">
                  <div className="w-16 h-16 rounded-3xl bg-amber-600/10 flex items-center justify-center text-amber-500 font-black italic text-2xl border border-amber-600/20">03</div>
                  <h3 className="text-4xl font-black italic tracking-tight">Instant Production API</h3>
@@ -184,18 +209,18 @@ export default function LandingPage() {
                     ))}
                  </ul>
               </div>
-              <div className="p-10 rounded-[40px] bg-white/[0.01] border border-white/5 order-1 lg:order-2">
+              <div className="p-10 rounded-[40px] bg-white/[0.01] border border-white/5 order-1 lg:order-2 hover:bg-white/[0.02] transition-colors">
                  {aiData && <Lottie animationData={aiData} loop={true} className="w-full h-auto max-h-[350px]" />}
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Scale Section */}
-      <section className="py-24 px-6 relative overflow-hidden">
+      <motion.section {...fadeIn} className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-blue-600/5 blur-[120px] rounded-full -z-10" />
-        <div className="max-w-5xl mx-auto p-12 md:p-20 rounded-[48px] border border-white/5 bg-white/[0.01] backdrop-blur-3xl text-center space-y-8 relative">
+        <div className="max-w-5xl mx-auto p-12 md:p-20 rounded-[48px] border border-white/5 bg-white/[0.01] backdrop-blur-3xl text-center space-y-8 relative shadow-2xl">
            <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter">Hit a wall with standard models? <br /><span className="text-blue-500">Let's build something bespoke.</span></h2>
            <p className="max-w-2xl mx-auto text-zinc-500 font-medium italic">For organizations with massive datasets, strict privacy requirements, or complex forecasting needs, our engineering team builds custom pipelines directly into your infrastructure.</p>
            <a 
@@ -206,19 +231,25 @@ export default function LandingPage() {
              Talk to an AI Architect <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
            </a>
         </div>
-      </section>
+      </motion.section>
 
       {/* Pricing Section */}
       <section id="pricing" className="py-32 px-6 border-t border-white/5">
         <div className="max-w-7xl mx-auto space-y-20">
-          <div className="text-center space-y-4">
+          <motion.div {...fadeIn} className="text-center space-y-4">
              <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">Engineered for Every Scale</h2>
              <p className="text-zinc-500 font-medium italic uppercase text-xs tracking-widest">Simple, transparent tiers for researchers and enterprises.</p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          <motion.div 
+            variants={staggerContainer}
+            initial="initial"
+            whileInView="whileInView"
+            viewport={{ once: true }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto"
+          >
              {/* Community Tier */}
-             <div className="p-12 rounded-[40px] border border-white/5 bg-white/[0.01] space-y-8 hover:border-white/10 transition-colors group">
+             <motion.div variants={fadeIn} className="p-12 rounded-[40px] border border-white/5 bg-white/[0.01] space-y-8 hover:border-white/10 transition-colors group">
                 <div className="space-y-2">
                    <h3 className="text-2xl font-black italic tracking-tight">Community</h3>
                    <p className="text-sm text-zinc-500 font-medium italic">For rapid prototyping and research.</p>
@@ -241,10 +272,10 @@ export default function LandingPage() {
                    ))}
                 </ul>
                 <Link href="/login" className="flex items-center justify-center w-full h-14 bg-white/5 border border-white/5 rounded-2xl text-sm font-black italic text-zinc-400 group-hover:text-white group-hover:bg-white/10 transition-all">Launch Console</Link>
-             </div>
+             </motion.div>
 
              {/* Enterprise Tier */}
-             <div className="p-12 rounded-[40px] border border-blue-500/20 bg-blue-600/[0.02] space-y-8 relative overflow-hidden group">
+             <motion.div variants={fadeIn} className="p-12 rounded-[40px] border border-blue-500/20 bg-blue-600/[0.02] space-y-8 relative overflow-hidden group shadow-2xl shadow-blue-500/5">
                 <div className="absolute top-6 right-6 px-3 py-1 rounded-full bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest animate-pulse">Production Ready</div>
                 <div className="space-y-2">
                    <h3 className="text-2xl font-black italic tracking-tight">Enterprise</h3>
@@ -267,20 +298,26 @@ export default function LandingPage() {
                    ))}
                 </ul>
                 <a href="https://calendly.com/vedantjadhav1414/30min" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full h-14 bg-blue-600 rounded-2xl text-sm font-black italic text-white shadow-xl shadow-blue-600/20 hover:bg-blue-500 transition-all">Book a Demo</a>
-             </div>
-          </div>
+             </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features Bento */}
       <section id="features" className="py-32 px-6 bg-[#0c0c0c] border-t border-white/5">
         <div className="max-w-7xl mx-auto space-y-16">
-          <div className="text-center space-y-4">
+          <motion.div {...fadeIn} className="text-center space-y-4">
              <h2 className="text-4xl font-black italic tracking-tight">Built for Production</h2>
              <p className="text-zinc-500 font-medium">Enterprise-grade features for mission critical machine learning.</p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <motion.div 
+            variants={staggerContainer}
+            initial="initial"
+            whileInView="whileInView"
+            viewport={{ once: true }}
+            className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+          >
             <BentoCard icon={Zap} title="Sub-10ms Latency" desc="Engineered for high-frequency trading and real-time bidding." color="text-amber-500" />
             <BentoCard icon={Shield} title="Data Guardrails" desc="Structural validation prevents garbage-in-garbage-out scenarios." color="text-emerald-500" />
             <BentoCard icon={Globe} title="Cloud Agnostic" desc="Deploy on Vercel, AWS, or your private air-gapped server." color="text-blue-500" />
@@ -289,7 +326,7 @@ export default function LandingPage() {
             <BentoCard icon={Database} title="Smart Impute" desc="Probabilistic handling of missing categorical and numerical data." color="text-blue-400" />
             <BentoCard icon={Cpu} title="Hybrid Engine" desc="Switch between XGBoost, LightGBM, and Deep Learning." color="text-zinc-200" />
             <BentoCard icon={Box} title="Versioned APIs" desc="Immutable model deployments with rollback capabilities." color="text-zinc-400" />
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -333,11 +370,17 @@ export default function LandingPage() {
 
 function BentoCard({ icon: Icon, title, desc, color }: any) {
   return (
-    <div className="p-8 rounded-[32px] bg-white/[0.01] border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all duration-300 group">
+    <motion.div 
+      variants={{
+        initial: { opacity: 0, scale: 0.9 },
+        whileInView: { opacity: 1, scale: 1 }
+      }}
+      className="p-8 rounded-[32px] bg-white/[0.01] border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all duration-300 group"
+    >
       <Icon className={`w-8 h-8 ${color} mb-6 transition-transform group-hover:scale-110 group-hover:rotate-6`} />
       <h3 className="text-lg font-black italic tracking-tight mb-2 uppercase">{title}</h3>
       <p className="text-zinc-600 text-[11px] font-bold leading-relaxed uppercase tracking-widest">{desc}</p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -360,5 +403,3 @@ function CheckCircle2(props: any) {
     </svg>
   );
 }
-
-import React from "react";
