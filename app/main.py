@@ -420,7 +420,7 @@ async def health_check():
 @app.get("/download-model")
 async def download_model(format: str = "joblib"):
     """Download the trained pipeline as .joblib or .pkl file."""
-    import os, tempfile, shutil
+    import os, tempfile, shutil, joblib
     from fastapi.responses import FileResponse
 
     if PIPELINE is None:
