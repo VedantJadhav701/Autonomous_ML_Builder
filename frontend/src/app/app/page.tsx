@@ -101,7 +101,7 @@ export default function AppDashboard() {
         <div style={{ maxWidth: 1100, width: "100%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img src="/logo.png" alt="AutoStack" style={{ width: 28, height: 28, objectContain: "contain" }} />
+              <img src="/logo.png" alt="AutoStack" style={{ width: 28, height: 28, objectFit: "contain" }} />
               <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>AutoStack</span>
             </div>
             <span style={{ color: C.border }}>|</span>
