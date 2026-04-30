@@ -228,7 +228,7 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
 
       {/* ── STEP: Config ── */}
       {step === "config" && (
-        <Panel title="Configure Pipeline" subtitle="Select the target column and task type. The engine will handle feature engineering and model selection automatically.">
+        <Panel title="Configure Pipeline" subtitle="Select the target column. The engine will automatically detect the task type (classification or regression), handle feature engineering, and select the optimal model.">
           <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 20 }}>
             {trainErr && <Msg ok={false} text={trainErr} />}
 
@@ -236,15 +236,6 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
               <label style={labelStyle}>Target Column (what to predict)</label>
               <select value={targetCol} onChange={e => setTargetCol(e.target.value)} style={selectStyle}>
                 {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label style={labelStyle}>Task Type</label>
-              <select value={taskType} onChange={e => setTaskType(e.target.value)} style={selectStyle}>
-                <option value="auto">Auto Detect</option>
-                <option value="classification">Classification</option>
-                <option value="regression">Regression</option>
               </select>
             </div>
 
@@ -256,7 +247,7 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
                   { k: "File", v: csvBytes?.name || "—" },
                   { k: "Columns", v: csvHeaders.length },
                   { k: "Target", v: targetCol || "—" },
-                  { k: "Task", v: taskType },
+                  { k: "Task", v: "Auto-Detecting..." },
                 ].map(r => (
                   <div key={r.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                     <span style={{ color: C.muted }}>{r.k}</span>
