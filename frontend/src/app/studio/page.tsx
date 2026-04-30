@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Database, Cpu, Zap, BarChart3, ArrowUpRight } from "lucide-react";
+import { Database, Cpu, Zap, BarChart3, ArrowUpRight, Activity } from "lucide-react";
 
 const STUDIO_CARDS = [
   {
