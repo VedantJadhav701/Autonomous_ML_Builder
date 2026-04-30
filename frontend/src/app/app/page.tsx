@@ -61,6 +61,7 @@ const C = {
   bg: "#0a0a0a", card: "rgba(255,255,255,0.02)", border: "rgba(255,255,255,0.08)",
   text: "#fff", muted: "rgba(255,255,255,0.4)", dim: "rgba(255,255,255,0.2)",
   blue: "#3b82f6", blueHov: "#60a5fa", green: "#34d399", red: "#f87171", yellow: "#eab308",
+  orange: "#f97316",
   inputBg: "rgba(255,255,255,0.05)",
 };
 
@@ -99,9 +100,12 @@ export default function AppDashboard() {
       <header style={{ position: "sticky", top: 0, zIndex: 40, height: 58, borderBottom: `1px solid ${C.border}`, backgroundColor: "rgba(10,10,10,0.94)", backdropFilter: "blur(20px)", display: "flex", alignItems: "center", padding: "0 24px" }}>
         <div style={{ maxWidth: 1100, width: "100%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <NavBack />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${C.blue}, #9333ea)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16 }}>A</div>
+              <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>AutoStack</span>
+            </div>
             <span style={{ color: C.border }}>|</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>Operational Console</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Operational Console</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <StatusPill label="Pipeline" active={health?.pipeline_loaded} />
@@ -366,7 +370,14 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
             {/* Overall progress bar */}
             <div style={{ marginBottom: 28 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12 }}>
-                <span style={{ color: C.muted }}>{jobStatus?.stage || "Starting…"}</span>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ color: C.muted }}>{jobStatus?.stage || "Starting…"}</span>
+                  {jobStatus?.eta_seconds != null && (
+                    <span style={{ color: C.orange, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      ⏲ Est. {jobStatus.eta_seconds}s remaining
+                    </span>
+                  )}
+                </div>
                 <span style={{ color: C.blue, fontWeight: 700 }}>{jobStatus?.progress ?? 0}%</span>
               </div>
               <div style={{ height: 6, borderRadius: 99, backgroundColor: "rgba(255,255,255,0.06)", overflow: "hidden" }}>

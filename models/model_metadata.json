@@ -1,49 +1,47 @@
 {
   "features": {
-    "age": {
-      "type": "number",
-      "values": null,
-      "sample": 44.0
-    },
-    "income": {
-      "type": "number",
-      "values": null,
-      "sample": 76589.0
-    },
-    "loan_amount": {
-      "type": "number",
-      "values": null,
-      "sample": 27994.5
-    },
-    "credit_score": {
-      "type": "number",
-      "values": null,
-      "sample": 662.0
-    },
-    "employment_years": {
-      "type": "number",
-      "values": null,
-      "sample": 10.0
-    },
-    "home_ownership": {
+    "Building Type": {
       "type": "text",
       "values": [
-        "MORTGAGE",
-        "OWN",
-        "RENT"
+        "Residential",
+        "Commercial",
+        "Industrial"
       ],
-      "sample": "RENT"
+      "sample": "Residential"
     },
-    "num_credit_lines": {
+    "Square Footage": {
       "type": "number",
       "values": null,
-      "sample": 5.0
+      "sample": 27582.5
+    },
+    "Number of Occupants": {
+      "type": "number",
+      "values": null,
+      "sample": 47.0
+    },
+    "Appliances Used": {
+      "type": "number",
+      "values": null,
+      "sample": 27.5
+    },
+    "Average Temperature": {
+      "type": "number",
+      "values": null,
+      "sample": 21.97
+    },
+    "Day of Week": {
+      "type": "text",
+      "values": [
+        "Weekday",
+        "Weekend"
+      ],
+      "sample": "Weekend"
     }
   },
-  "task_type": "classification",
-  "target_col": "default",
-  "model_name": "RandomForestClassifier",
-  "n_samples": 300,
-  "n_features": 7,
+  "task_type": "regression",
+  "target_col": "Energy Consumption",
+  "model_name": "RandomForestRegressor",
+  "n_samples": 100,
+  "n_features": 6,
   "target_mapping": null
 }

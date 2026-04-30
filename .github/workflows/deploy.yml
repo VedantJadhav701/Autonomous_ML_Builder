@@ -1,0 +1,20 @@
+name: Deploy AutoStack Backend to Hugging Face
+
+on:
+  push:
+    branches: [main] # Runs every time you push to the 'main' branch
+  workflow_dispatch: # Allows you to run it manually from GitHub
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: git push https://VedantJadhav701:$HF_TOKEN@huggingface.co/spaces/VedantJadhav701/autostack-engine main

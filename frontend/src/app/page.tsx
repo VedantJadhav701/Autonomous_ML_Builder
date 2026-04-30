@@ -1,244 +1,157 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowRight, ExternalLink } from "lucide-react";
-
-const FEATURES = [
-  { icon: "⚙️", title: "Adaptive Pipeline Engine", desc: "Auto-selects between LogisticRegression, RandomForest, and LightGBM based on dataset size and cardinality." },
-  { icon: "📊", title: "Real-Time Drift Detection", desc: "Kolmogorov-Smirnov (numerical) + Chi-Square (categorical) testing. Rate-limited alerts on every request." },
-  { icon: "⚡", title: "Sub-10ms Inference", desc: "Unified joblib pipelines pre-loaded at boot. Zero cold-start. P95 under 10ms on shared CPU cores." },
-  { icon: "🧠", title: "Operationalized SHAP", desc: "MD5-cached SHAP explanations per request. Binary classification multi-dim array support with 50-row OOM guard." },
-  { icon: "🔁", title: "Async Feedback Loop", desc: "Delayed ground-truth reconciliation via request IDs. Evaluates live F1 scores without blocking inference." },
-  { icon: "🛡️", title: "LLM Structural Planner", desc: "Guardrailed LLM override layer for architecture decisions. Every decision logged with a full rationale." },
-];
-
-const ARCH_NODES = [
-  { label: "User", color: "#3b82f6", textColor: "#fff" },
-  { label: "FastAPI", color: "rgba(255,255,255,0.06)", textColor: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" },
-  { label: "Pipeline", color: "rgba(255,255,255,0.06)", textColor: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" },
-  { label: "Model", color: "rgba(255,255,255,0.06)", textColor: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" },
-  { label: "Drift Monitor", color: "rgba(234,179,8,0.12)", textColor: "#eab308", border: "1px solid rgba(234,179,8,0.2)" },
-  { label: "Feedback", color: "rgba(255,255,255,0.06)", textColor: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" },
-  { label: "Alerts", color: "rgba(239,68,68,0.12)", textColor: "#f87171", border: "1px solid rgba(239,68,68,0.2)" },
-];
-
-const ENDPOINTS = [
-  { method: "POST", path: "/predict",  desc: "Batch inference — class predictions + request IDs" },
-  { method: "POST", path: "/explain",  desc: "SHAP feature contributions (cached, hard-capped at 50 rows)" },
-  { method: "POST", path: "/feedback", desc: "Reconcile delayed ground truth labels by request ID" },
-  { method: "GET",  path: "/health",   desc: "Pipeline + explainer readiness check" },
-  { method: "GET",  path: "/alerts",   desc: "Drift alert history from Sentinel monitor" },
-];
+import { ArrowRight, ExternalLink, Activity, Cpu, Shield, Zap, Database, BarChart3 } from "lucide-react";
 
 export default function LandingPage() {
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0a0a0a", color: "#fff", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      <Navbar />
-
-      {/* Hero */}
-      <section style={{ paddingTop: 160, paddingBottom: 96, paddingLeft: 24, paddingRight: 24 }}>
-        <div style={{ maxWidth: 1024, margin: "0 auto", display: "flex", flexDirection: "column", gap: 36 }}>
-          <Badge />
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 700 }}>
-            <h1 style={{ fontSize: 60, fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.05, color: "#fff", margin: 0 }}>
-              Autonomous ML Builder
-            </h1>
-            <p style={{ fontSize: 18, lineHeight: 1.75, color: "rgba(255,255,255,0.5)", margin: 0, maxWidth: 580 }}>
-              Production-grade ML lifecycle system with real-time drift detection, SHAP explainability, and auto pipeline design. Built for resource-constrained environments.
-            </p>
-          </div>
-          <HeroCTAs />
-          <Stats />
-        </div>
-      </section>
-
-      {/* Features */}
-      <section style={{ padding: "80px 24px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ maxWidth: 1024, margin: "0 auto", display: "flex", flexDirection: "column", gap: 48 }}>
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>Capabilities</p>
-            <h2 style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.02em", color: "#fff", margin: 0 }}>What this system does</h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
-            {FEATURES.map((f) => <FeatureCard key={f.title} {...f} />)}
-          </div>
-        </div>
-      </section>
-
-      {/* Architecture */}
-      <section style={{ padding: "80px 24px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ maxWidth: 1024, margin: "0 auto", display: "flex", flexDirection: "column", gap: 40 }}>
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 12 }}>System Design</p>
-            <h2 style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.02em", color: "#fff", margin: 0 }}>Architecture</h2>
-          </div>
-
-          <div style={{ borderRadius: 16, backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", padding: 28, overflowX: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: "max-content" }}>
-              {ARCH_NODES.map((n, i) => (
-                <div key={n.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <ArchNode node={n} />
-                  {i < ARCH_NODES.length - 1 && <span style={{ color: "rgba(255,255,255,0.18)", fontSize: 18 }}>→</span>}
-                </div>
-              ))}
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-blue-500/30 overflow-x-hidden relative">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl flex items-center px-6 md:px-12">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-sm font-black italic shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+              A
             </div>
+            <span className="text-lg font-black italic tracking-tight group-hover:text-blue-400 transition-colors">AutoStack</span>
+          </Link>
+          
+          <div className="flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-6 text-sm font-bold text-zinc-500">
+              <a href="#features" className="hover:text-white transition-colors">Features</a>
+              <a href="#architecture" className="hover:text-white transition-colors">Architecture</a>
+              <a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" className="flex items-center gap-1 hover:text-white transition-colors">
+                <ExternalLink className="w-3 h-3" /> GitHub
+              </a>
+            </div>
+            <Link 
+              href="/login" 
+              className="px-5 h-10 bg-blue-600 text-white rounded-xl text-sm font-black italic flex items-center gap-2 hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+            >
+              Launch App <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative pt-40 pb-24 px-6 overflow-hidden min-h-[90vh] flex items-center justify-center">
+        {/* Background Video (Starting Screen Only) */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+          <video 
+            autoPlay 
+            muted 
+            loop 
+            playsInline 
+            className="w-full h-full object-cover opacity-30"
+          >
+            <source src="/background_video.mov" type="video/quicktime" />
+            <source src="/background_video.mov" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-transparent to-[#0a0a0a]" />
+        </div>
+
+        {/* Animated Background Gradients */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none -z-10" />
+        <div className="absolute top-40 right-0 w-[500px] h-[400px] bg-purple-600/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+
+        <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#3b82f6]" />
+            Enterprise AutoML Framework
+          </div>
+          
+          <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-[0.9] text-white">
+            The Zero-Config <br />
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-blue-500 animate-gradient">
+              ML Stack.
+            </span>
+          </h1>
+          
+          <p className="max-w-2xl mx-auto text-lg md:text-xl text-zinc-500 font-medium leading-relaxed">
+            Production-grade ML lifecycle system with real-time drift detection, SHAP explainability, and autonomous pipeline synthesis. Built for high-stakes environments.
+          </p>
+
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
+            <Link 
+              href="/login" 
+              className="w-full md:w-auto px-10 h-14 bg-blue-600 text-white rounded-2xl text-lg font-black italic flex items-center justify-center gap-3 hover:bg-blue-500 transition-all shadow-2xl shadow-blue-600/30 active:scale-95"
+            >
+              Start Building <ArrowRight className="w-5 h-5" />
+            </Link>
+            <a 
+              href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" 
+              target="_blank"
+              className="w-full md:w-auto px-10 h-14 bg-white/[0.03] border border-white/10 text-white rounded-2xl text-lg font-black italic flex items-center justify-center gap-3 hover:bg-white/[0.06] transition-all"
+            >
+              <ExternalLink className="w-5 h-5" /> View Source
+            </a>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(440px,1fr))", gap: 12 }}>
-            {ENDPOINTS.map((ep) => <EndpointRow key={ep.path} {...ep} />)}
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-20 max-w-4xl mx-auto border-t border-white/5 mt-20">
+            {[
+              { val: "< 10ms", label: "P95 Latency" },
+              { val: "Auto", label: "Pipeline" },
+              { val: "50k", label: "Rows / Load" },
+              { val: "KS + χ²", label: "Drift Tests" }
+            ].map(s => (
+              <div key={s.label} className="space-y-1">
+                <p className="text-3xl font-black italic tracking-tight">{s.val}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{s.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section style={{ padding: "80px 24px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ maxWidth: 1024, margin: "0 auto" }}>
-          <div style={{ borderRadius: 24, border: "1px solid rgba(255,255,255,0.1)", background: "linear-gradient(135deg, rgba(59,130,246,0.07), rgba(255,255,255,0.01))", padding: "64px 48px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-            <h2 style={{ fontSize: 38, fontWeight: 900, letterSpacing: "-0.02em", color: "#fff", margin: 0 }}>Ready to test the system?</h2>
-            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.4)", maxWidth: 480, lineHeight: 1.7, margin: 0 }}>
-              Run live inference, inspect SHAP explanations, inject drift, and monitor the full ML lifecycle.
-            </p>
-            <HoverLink href="/app" primary>Launch App <ArrowRight style={{ width: 16, height: 16 }} /></HoverLink>
+      {/* Features Grid */}
+      <section id="features" className="py-24 px-6 border-t border-white/5">
+        <div className="max-w-7xl mx-auto space-y-16">
+          <div className="space-y-4">
+            <h2 className="text-4xl font-black italic tracking-tight">Core Modules</h2>
+            <p className="text-zinc-500 font-medium max-w-xl italic">AutoStack automates the entire machine learning lifecycle, from data profiling to live production monitoring.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { icon: Database, title: "Data Ingestion", desc: "Auto-selects between One-Hot and Ordinal encoding based on cardinality and entropy.", color: "text-blue-500" },
+              { icon: Cpu, title: "Stacking Ensemble", desc: "Combines XGBoost, CatBoost, and LightGBM with a Meta-Learner for peak accuracy.", color: "text-purple-500" },
+              { icon: Activity, title: "Drift Monitor", desc: "Real-time statistical testing detects 'silent failures' before they impact your business.", color: "text-amber-500" },
+              { icon: Shield, title: "Guardrail Layer", desc: "LLM-assisted structural planning ensures model architecture respects your data constraints.", color: "text-emerald-500" },
+              { icon: BarChart3, title: "SHAP Explainers", desc: "Every prediction comes with a global contribution analysis. Know exactly why the model made a choice.", color: "text-blue-400" },
+              { icon: Zap, title: "Instant Inference", desc: "Unified joblib pipelines pre-loaded at boot. Zero cold-start latency for mission-critical apps.", color: "text-yellow-400" },
+            ].map((f, i) => (
+              <div key={i} className="group p-8 rounded-[32px] bg-white/[0.01] border border-white/5 hover:border-white/10 hover:bg-white/[0.02] transition-all duration-300">
+                <f.icon className={`w-8 h-8 ${f.color} mb-6 transition-transform group-hover:scale-110 group-hover:rotate-6`} />
+                <h3 className="text-xl font-black italic tracking-tight mb-2">{f.title}</h3>
+                <p className="text-zinc-500 text-sm font-medium leading-relaxed italic">{f.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "28px 24px" }}>
-        <div style={{ maxWidth: 1024, margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", margin: 0 }}>Autonomous ML Builder · v1.0.0 · MIT License · Built by Vedant Jadhav</p>
-          <div style={{ display: "flex", gap: 24 }}>
-            <HoverA href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank">GitHub</HoverA>
-            <HoverLink href="/app">Dashboard</HoverLink>
+      <footer className="py-12 px-6 border-t border-white/5 bg-black/50 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex items-center gap-3">
+             <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center text-[10px] font-black italic">A</div>
+             <span className="text-xs font-black italic tracking-tighter text-zinc-500">AutoStack v2.0.0</span>
           </div>
+          
+          <div className="flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-700">
+            <a href="#" className="hover:text-zinc-400 transition-colors">Documentation</a>
+            <a href="#" className="hover:text-zinc-400 transition-colors">Changelog</a>
+            <a href="#" className="hover:text-zinc-400 transition-colors">Legal</a>
+            <a href="#" className="hover:text-zinc-400 transition-colors">Privacy</a>
+          </div>
+          
+          <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest">
+            Built by Vedant Jadhav
+          </p>
         </div>
       </footer>
     </div>
   );
-}
-
-/* ── Sub-components ─────────────────────────────────────────────────────────── */
-
-function Navbar() {
-  const [hoverGH, setHoverGH] = useState(false);
-  return (
-    <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, height: 64, borderBottom: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(10,10,10,0.9)", backdropFilter: "blur(20px)", display: "flex", alignItems: "center" }}>
-      <div style={{ maxWidth: 1024, width: "100%", margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#fff" }}>ML</div>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>Autonomous ML Builder</span>
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" rel="noopener noreferrer"
-            onMouseEnter={() => setHoverGH(true)} onMouseLeave={() => setHoverGH(false)}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: hoverGH ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.4)", transition: "color 0.2s" }}>
-            <ExternalLink style={{ width: 14, height: 14 }} /> GitHub
-          </a>
-          <HoverLink href="/app" primary small>Launch App</HoverLink>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-function Badge() {
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 99, border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", fontSize: 12, width: "fit-content" }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#22c55e", display: "inline-block", boxShadow: "0 0 8px #22c55e" }} />
-      v1.0.0 — Production Release
-    </div>
-  );
-}
-
-function HeroCTAs() {
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-      <HoverLink href="/app" primary>Launch App <ArrowRight style={{ width: 16, height: 16 }} /></HoverLink>
-      <HoverA href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" outline>
-        <ExternalLink style={{ width: 15, height: 15 }} /> View Source
-      </HoverA>
-    </div>
-  );
-}
-
-function Stats() {
-  const items = [{ val: "< 10ms", label: "P95 Latency" }, { val: "< 1 GB", label: "RAM Footprint" }, { val: "50,000", label: "Max Dataset Rows" }, { val: "KS + χ²", label: "Drift Detection Tests" }];
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-      {items.map(s => (
-        <div key={s.label}>
-          <p style={{ fontSize: 26, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>{s.val}</p>
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: "4px 0 0", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>{s.label}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ borderRadius: 16, backgroundColor: hov ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)", border: hov ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.07)", padding: 24, display: "flex", flexDirection: "column", gap: 14, transition: "all 0.25s", transform: hov ? "translateY(-2px)" : "translateY(0)", cursor: "default" }}>
-      <span style={{ fontSize: 26 }}>{icon}</span>
-      <h3 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1.4 }}>{title}</h3>
-      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.7 }}>{desc}</p>
-    </div>
-  );
-}
-
-function ArchNode({ node }: { node: any }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ padding: "8px 18px", borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", backgroundColor: node.color, color: node.textColor, border: node.border || "none", transition: "opacity 0.2s, transform 0.2s", opacity: hov ? 1 : 0.85, transform: hov ? "scale(1.05)" : "scale(1)", cursor: "default" }}>
-      {node.label}
-    </div>
-  );
-}
-
-function EndpointRow({ method, path, desc }: { method: string; path: string; desc: string }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 16px", borderRadius: 12, backgroundColor: hov ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", transition: "background 0.2s" }}>
-      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, padding: "4px 8px", borderRadius: 6, ...(method === "POST" ? { backgroundColor: "rgba(59,130,246,0.15)", color: "#60a5fa" } : { backgroundColor: "rgba(16,185,129,0.15)", color: "#34d399" }) }}>
-        {method}
-      </span>
-      <div>
-        <code style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>{path}</code>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 3, lineHeight: 1.5 }}>{desc}</p>
-      </div>
-    </div>
-  );
-}
-
-function HoverLink({ href, children, primary, small, outline }: { href: string; children: React.ReactNode; primary?: boolean; small?: boolean; outline?: boolean }) {
-  const [hov, setHov] = useState(false);
-  const base: React.CSSProperties = {
-    display: "inline-flex", alignItems: "center", gap: 8,
-    padding: small ? "8px 16px" : "14px 28px",
-    borderRadius: small ? 10 : 14,
-    fontSize: small ? 13 : 14,
-    fontWeight: 700,
-    textDecoration: "none",
-    transition: "all 0.2s",
-    cursor: "pointer",
-    transform: hov ? "translateY(-1px)" : "translateY(0)",
-  };
-  const style: React.CSSProperties = primary
-    ? { ...base, backgroundColor: hov ? "#60a5fa" : "#3b82f6", color: "#fff", boxShadow: hov ? "0 8px 24px rgba(59,130,246,0.35)" : "0 4px 12px rgba(59,130,246,0.2)" }
-    : outline
-    ? { ...base, border: "1px solid rgba(255,255,255,0.12)", color: hov ? "#fff" : "rgba(255,255,255,0.55)", backgroundColor: hov ? "rgba(255,255,255,0.06)" : "transparent" }
-    : { ...base, color: hov ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)" };
-  return <Link href={href} style={style} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>{children}</Link>;
-}
-
-function HoverA({ href, children, target, outline }: { href: string; children: React.ReactNode; target?: string; outline?: boolean }) {
-  const [hov, setHov] = useState(false);
-  const style: React.CSSProperties = outline
-    ? { display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", borderRadius: 14, fontSize: 14, fontWeight: 700, textDecoration: "none", border: "1px solid rgba(255,255,255,0.12)", color: hov ? "#fff" : "rgba(255,255,255,0.55)", backgroundColor: hov ? "rgba(255,255,255,0.06)" : "transparent", transition: "all 0.2s", transform: hov ? "translateY(-1px)" : "translateY(0)" }
-    : { fontSize: 13, color: hov ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)", textDecoration: "none", transition: "color 0.2s" };
-  return <a href={href} target={target} rel="noopener noreferrer" style={style} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>{children}</a>;
 }

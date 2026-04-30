@@ -202,7 +202,7 @@ class DataProfiler:
         }
 
     @staticmethod
-    def profile_and_prepare(df: pd.DataFrame, target_col: str) -> Tuple[pd.DataFrame, pd.Series, Dict[str, List[str]]]:
+    def profile_and_prepare(df: pd.DataFrame, target_col: str) -> Tuple[pd.DataFrame, pd.Series, Dict[str, List[str]], str]:
         """Full pipeline: drop bad cols → memory optimize → profile → X/y split."""
         # Step 0: Extract temporal features from dates
         df = DataProfiler.extract_datetime_features(df, target_col)
@@ -230,9 +230,12 @@ class DataProfiler:
         if feature_layout["drop"]:
             df = df.drop(columns=feature_layout["drop"], errors="ignore")
 
+        # SAVE CLEAN DATA FOR DOWNLOAD
+        cleaned_csv = df.to_csv(index=False)
+
         y = df[target_col]
         X = df.drop(columns=[target_col])
-        return X, y, feature_layout
+        return X, y, feature_layout, cleaned_csv
 
     @staticmethod
     def build_feature_schema(df_raw: pd.DataFrame, target_col: str) -> Dict[str, Dict]:

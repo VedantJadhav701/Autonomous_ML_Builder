@@ -12,7 +12,7 @@ from src.monitoring.performance import PerformanceTracker
 
 logger = get_logger(__name__)
 
-app = FastAPI(title="Autonomous ML Builder API", version="2.0.0")
+app = FastAPI(title="AutoStack - Autonomous ML Builder", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,7 +107,9 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         feature_schema = DataProfiler.build_feature_schema(df_raw, target_col)
 
         # Profile and prepare (robust, drops bad columns internally)
-        X, y, feature_layout = DataProfiler.profile_and_prepare(df_raw.copy(), target_col)
+        X, y, feature_layout, cleaned_csv = DataProfiler.profile_and_prepare(df_raw.copy(), target_col)
+        JOBS[job_id]["cleaned_csv"] = cleaned_csv
+        
         n_samples, n_features = X.shape
         logger.info(f"Profiled: {n_samples} rows × {n_features} features")
 
@@ -156,8 +158,9 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
             y = pd.Series(le.fit_transform(y), index=y.index)
             target_mapping = {str(i): str(c) for i, c in enumerate(le.classes_)}
 
-        # Never stratify for regression or when target has many unique values
-        use_stratify = (not is_regression) and (y.nunique() <= max(50, 0.1 * n_samples))
+        # Never stratify if test set is too small to hold all classes
+        n_test_est = int(max(1, 0.2 * n_samples))
+        use_stratify = (not is_regression) and (y.nunique() > 1) and (n_test_est >= y.nunique()) and (y.nunique() <= max(50, 0.1 * n_samples))
         stratify_arg = y if use_stratify else None
 
         X_train, X_test, y_train, y_test = train_test_split(
@@ -247,6 +250,8 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
                 "suggestions": EvaluationEngine.generate_failure_analysis(df_raw, target_col, metrics) if aggressive and ((metrics.get("F1_Score") or 1) < 0.85 and (metrics.get("R2_Score") or 1) < 0.85) else [],
             },
         })
+        # Save pipeline in job for individual download
+        JOBS[job_id]["pipeline"] = tuned_pipeline
 
     except Exception as e:
         logger.error(f"Training job {job_id} failed: {e}", exc_info=True)
@@ -285,10 +290,22 @@ async def start_training(
     if len(csv_bytes) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File exceeds 5 MB limit.")
 
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+    warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
+
     job_id = str(uuid.uuid4())
-    JOBS[job_id] = {"stage": "Queued", "step": 0, "progress": 0,
-                    "status": "queued", "result": None, "error": None}
     is_aggressive = aggressive.lower() == "true"
+    JOBS[job_id] = {
+        "stage": "Queued", 
+        "step": 0, 
+        "progress": 0,
+        "status": "queued", 
+        "result": None, 
+        "error": None,
+        "start_time": time.time(),
+        "aggressive": is_aggressive
+    }
     thread = threading.Thread(
         target=_run_training,
         args=(job_id, csv_bytes, target_column, task_type, is_aggressive),
@@ -303,6 +320,15 @@ async def job_status(job_id: str):
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job not found.")
     job = JOBS[job_id]
+    
+    # Calculate ETA
+    eta_seconds = None
+    if job.get("status") == "running" and job.get("progress", 0) > 5:
+        elapsed = time.time() - job.get("start_time", time.time())
+        prog = job.get("progress", 0)
+        total_est = (elapsed / prog) * 100
+        eta_seconds = max(0, int(total_est - elapsed))
+
     return {
         "job_id": job_id,
         "stage": job["stage"],
@@ -311,6 +337,7 @@ async def job_status(job_id: str):
         "progress": job["progress"],
         "status": job["status"],
         "error": job.get("error"),
+        "eta_seconds": eta_seconds,
     }
 
 
@@ -442,30 +469,48 @@ async def health_check():
     }
 
 
-@app.get("/download-model")
-async def download_model(format: str = "joblib"):
-    """Download the trained pipeline as .joblib or .pkl file."""
-    import os, tempfile, shutil, joblib
+@app.get("/download-model/{job_id}")
+async def download_model(job_id: str, format: str = "joblib"):
+    """Download the trained pipeline for a specific job."""
+    import os, tempfile, joblib
     from fastapi.responses import FileResponse
 
-    if PIPELINE is None:
-        raise HTTPException(status_code=503, detail="No model trained yet. Train a model first.")
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    job = JOBS[job_id]
+    pipe = job.get("pipeline")
+    if pipe is None:
+        raise HTTPException(status_code=404, detail="Model artifact not found for this job.")
 
     allowed = {"joblib", "pkl"}
     if format not in allowed:
         raise HTTPException(status_code=400, detail=f"Format must be one of: {allowed}")
 
-    model_name = (MODEL_METADATA or {}).get("model_name", "model")
-    task_type  = (MODEL_METADATA or {}).get("task_type", "model")
-    filename   = f"autonomous_ml_{model_name}_{task_type}.{format}"
+    res = job.get("result", {})
+    model_name = res.get("model_name", "model")
+    task_type  = res.get("task_type", "model")
+    filename   = f"autostack_{model_name}_{job_id[:8]}.{format}"
 
-    # Write to a temp file so FileResponse can serve it
     tmp_path = os.path.join(tempfile.gettempdir(), filename)
-    joblib.dump(PIPELINE, tmp_path)
+    joblib.dump(pipe, tmp_path)
 
-    return FileResponse(
-        path=tmp_path,
-        media_type="application/octet-stream",
-        filename=filename,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    return FileResponse(path=tmp_path, filename=filename)
+
+
+@app.get("/download-clean-data/{job_id}")
+async def download_clean_data(job_id: str):
+    """Returns the processed CSV for a specific job."""
+    from fastapi.responses import Response
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    job = JOBS[job_id]
+    csv_str = job.get("cleaned_csv")
+    if csv_str is None:
+        raise HTTPException(status_code=404, detail="Cleaned data not available.")
+
+    filename = f"autostack_cleaned_data_{job_id[:8]}.csv"
+    return Response(
+        content=csv_str,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
