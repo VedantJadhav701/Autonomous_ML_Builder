@@ -157,7 +157,7 @@ export default function TrainPage() {
                     </div>
                  </div>
                  <div className="pt-2">
-                    <p className="text-[9px] font-bold text-zinc-500 italic leading-relaxed mb-4">Need higher accuracy or processing >10k rows? Unlock the Enterprise Engine.</p>
+                    <p className="text-[9px] font-bold text-zinc-500 italic leading-relaxed mb-4">Need higher accuracy or processing &gt;10k rows? Unlock the Enterprise Engine.</p>
                     <a 
                       href="https://calendly.com/vedantjadhav1414/30min" 
                       target="_blank"
