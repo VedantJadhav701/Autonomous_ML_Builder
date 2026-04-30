@@ -13,22 +13,30 @@ class EvaluationEngine:
     """Evaluation metrics and SHAP explainability reporting."""
 
     @staticmethod
-    def evaluate_model(pipeline: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, float]:
-        """Calculates core evaluation metrics on a hold-out test set — auto-detects task type."""
-        from lightgbm import LGBMRegressor
-        from sklearn.ensemble import RandomForestRegressor
-        from sklearn.linear_model import Ridge
-
-        model = pipeline.named_steps.get("model")
-        is_regression = isinstance(model, (LGBMRegressor, RandomForestRegressor, Ridge))
-
+    def evaluate_model(pipeline: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, Any]:
+        """Calculates core evaluation metrics and generates plot data."""
+        from sklearn.base import is_regressor
+        from sklearn.metrics import confusion_matrix
+        
+        is_regression = is_regressor(pipeline.named_steps.get("model"))
         y_pred = pipeline.predict(X_test)
+        
+        plot_data = {}
 
         if is_regression:
             from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
             mae = mean_absolute_error(y_test, y_pred)
             rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
             r2 = r2_score(y_test, y_pred)
+            
+            # For scatter plot: Actual vs Predicted
+            # Sample 200 points for the UI chart
+            idx = np.random.choice(len(y_test), min(200, len(y_test)), replace=False)
+            plot_data = {
+                "type": "scatter",
+                "data": [{"actual": float(a), "predicted": float(p)} for a, p in zip(y_test.iloc[idx], y_pred[idx])]
+            }
+            
             metrics = {
                 "R2_Score": float(r2),
                 "MAE": float(mae),
@@ -39,7 +47,7 @@ class EvaluationEngine:
                 "Recall": None,
             }
             logger.info(f"Regression Metrics: R²={r2:.4f}, MAE={mae:.4f}, RMSE={rmse:.4f}")
-            return metrics
+            return {"metrics": metrics, "plots": plot_data}
 
         # ── Classification ───────────────────────────────────────────────────
         try:
@@ -50,6 +58,13 @@ class EvaluationEngine:
                 roc_auc = roc_auc_score(y_test, y_proba, multi_class='ovr')
         except Exception:
             roc_auc = None
+
+        cm = confusion_matrix(y_test, y_pred)
+        plot_data = {
+            "type": "confusion_matrix",
+            "labels": [str(c) for c in np.unique(y_test)],
+            "matrix": cm.tolist()
+        }
 
         metrics = {
             "ROC_AUC": float(roc_auc) if roc_auc is not None else None,
@@ -62,7 +77,7 @@ class EvaluationEngine:
         }
 
         logger.info(f"Evaluation Metrics Computed: {json.dumps({k: v for k, v in metrics.items() if v is not None})}")
-        return metrics
+        return {"metrics": metrics, "plots": plot_data}
 
 
     @staticmethod

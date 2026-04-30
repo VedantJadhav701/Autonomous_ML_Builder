@@ -3,7 +3,57 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, RefreshCcw, Upload, Activity, ChevronRight } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  ScatterChart, Scatter, CartesianGrid, ZAxis
+} from "recharts";
+
+// ─────────────────────────────────────────────────── COMPONENTS ───────────────
+function RegressionChart({ data }: { data: any[] }) {
+  return (
+    <div style={{ height: 260, width: "100%", marginTop: 10 }}>
+      <ResponsiveContainer>
+        <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+          <XAxis type="number" dataKey="actual" name="Actual" stroke={C.muted} fontSize={10} label={{ value: 'Actual', position: 'bottom', fill: C.muted, fontSize: 10 }} />
+          <YAxis type="number" dataKey="predicted" name="Predicted" stroke={C.muted} fontSize={10} label={{ value: 'Predicted', angle: -90, position: 'insideLeft', fill: C.muted, fontSize: 10 }} />
+          <ZAxis type="number" range={[40, 40]} />
+          <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }} />
+          <Scatter name="Predictions" data={data} fill={C.blue} fillOpacity={0.6} />
+        </ScatterChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ConfusionMatrix({ labels, matrix }: { labels: string[], matrix: number[][] }) {
+  const maxVal = Math.max(...matrix.flat());
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${labels.length}, 1fr)`, gap: 4 }}>
+        {matrix.flat().map((val, i) => {
+          const row = Math.floor(i / labels.length);
+          const col = i % labels.length;
+          const opacity = 0.1 + (val / maxVal) * 0.8;
+          const isDiagonal = row === col;
+          return (
+            <div key={i} style={{ 
+              aspectRatio: "1/1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              backgroundColor: isDiagonal ? `rgba(52,211,153, ${opacity})` : `rgba(248,113,113, ${opacity})`,
+              borderRadius: 6, border: "1px solid rgba(255,255,255,0.05)"
+            }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{val}</span>
+              <span style={{ fontSize: 8, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>{isDiagonal ? "Correct" : "Error"}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-around", marginTop: 8, fontSize: 10, color: C.muted }}>
+        {labels.map(l => <span key={l}>{l}</span>)}
+      </div>
+    </div>
+  );
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -383,6 +433,22 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
               )}
             </Panel>
           </div>
+
+          {/* ── Charts Row ── */}
+          {results.plots && (
+            <div style={{ marginTop: 20 }}>
+              <Panel 
+                title={results.plots.type === 'confusion_matrix' ? "Error Analysis (Confusion Matrix)" : "Model Calibration (Actual vs Predicted)"} 
+                subtitle={results.plots.type === 'confusion_matrix' ? "Detailed breakdown of correct predictions vs misclassifications." : "Visualization of prediction error and variance."}
+              >
+                {results.plots.type === 'confusion_matrix' ? (
+                  <ConfusionMatrix labels={results.plots.labels} matrix={results.plots.matrix} />
+                ) : (
+                  <RegressionChart data={results.plots.data} />
+                )}
+              </Panel>
+            </div>
+          )}
         </div>
       )}
     </div>

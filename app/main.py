@@ -169,7 +169,9 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         # ── Stage 5: Evaluate ────────────────────────────────────────────────
         _set_stage(job_id, 4)
         from src.evaluation import EvaluationEngine
-        metrics = EvaluationEngine.evaluate_model(tuned_pipeline, X_test, y_test)
+        eval_results = EvaluationEngine.evaluate_model(tuned_pipeline, X_test, y_test)
+        metrics = eval_results["metrics"]
+        plots = eval_results["plots"]
         explainer = EvaluationEngine.generate_shap_report(
             tuned_pipeline, X_train, is_tree_model=is_tree
         )
@@ -234,6 +236,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
                 "model_name": model_name,
                 "task_type": "regression" if is_regression else "classification",
                 "metrics": metrics,
+                "plots": plots,
                 "training_time_sec": elapsed,
                 "feature_importance": feature_importance,
                 "n_samples": n_samples,

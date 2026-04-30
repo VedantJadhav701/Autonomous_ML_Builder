@@ -16,6 +16,38 @@ class DataProfiler:
     """Intelligently profiles and optimizes DataFrames for machine learning pipelines."""
 
     @staticmethod
+    def extract_datetime_features(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
+        """
+        Detects date-like strings and extracts numeric features (Year, Month, Day, DayOfWeek).
+        """
+        for col in df.columns:
+            if col == target_col:
+                continue
+            
+            if df[col].dtype == object:
+                # Heuristic: try to parse as datetime if string looks like it contains dates
+                # (simple check: at least 30% of the data should be parseable)
+                sample = df[col].dropna().head(100)
+                if len(sample) == 0: continue
+                
+                try:
+                    # Attempt to convert to datetime
+                    dates = pd.to_datetime(df[col], errors='coerce')
+                    valid_ratio = dates.notna().sum() / len(df)
+                    
+                    if valid_ratio > 0.3:
+                        logger.info(f"Extracting temporal features from '{col}' (valid date ratio: {valid_ratio:.1%})")
+                        df[f"{col}_year"] = dates.dt.year.fillna(dates.dt.year.median() if not dates.dt.year.isna().all() else 0).astype(int)
+                        df[f"{col}_month"] = dates.dt.month.fillna(0).astype(int)
+                        df[f"{col}_day"] = dates.dt.day.fillna(0).astype(int)
+                        df[f"{col}_dow"] = dates.dt.dayofweek.fillna(0).astype(int)
+                        df = df.drop(columns=[col])
+                except Exception as e:
+                    logger.debug(f"Failed to parse '{col}' as datetime: {e}")
+        
+        return df
+
+    @staticmethod
     def drop_bad_columns(df: pd.DataFrame, target_col: str) -> pd.DataFrame:
         """
         Drops columns that are useless or harmful before training:
@@ -151,6 +183,9 @@ class DataProfiler:
     @staticmethod
     def profile_and_prepare(df: pd.DataFrame, target_col: str) -> Tuple[pd.DataFrame, pd.Series, Dict[str, List[str]]]:
         """Full pipeline: drop bad cols → memory optimize → profile → X/y split."""
+        # Step 0: Extract temporal features from dates
+        df = DataProfiler.extract_datetime_features(df, target_col)
+
         # Step 1: drop useless columns
         df = DataProfiler.drop_bad_columns(df, target_col)
 

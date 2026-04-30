@@ -13,23 +13,31 @@ class ModelSelectionEngine:
     @staticmethod
     def get_model_candidate(n_samples: int, n_features: int, is_sparse: bool, is_regression: bool = False) -> Any:
         """Selects a base model candidate for the dataset traits."""
+        from sklearn.ensemble import VotingClassifier, VotingRegressor
+        
         if is_regression:
-            if n_samples < 10000:
-                logger.info("Selecting RandomForestRegressor for regression.")
+            if n_samples < 1000:
+                logger.info("Selecting RandomForestRegressor for small regression.")
                 return RandomForestRegressor(n_jobs=-1, random_state=42)
             else:
-                logger.info("Selecting LGBMRegressor for large-scale regression.")
-                return LGBMRegressor(n_jobs=-1, random_state=42, verbose=-1)
+                logger.info("Selecting VotingRegressor (RF + LGBM) for robust regression.")
+                return VotingRegressor([
+                    ('rf', RandomForestRegressor(n_estimators=100, n_jobs=-1, random_state=42)),
+                    ('lgbm', LGBMRegressor(n_estimators=100, n_jobs=-1, random_state=42, verbose=-1))
+                ])
         else:
             if is_sparse and n_samples < 5000:
                 logger.info("Selecting Logistic Regression for sparse data.")
                 return LogisticRegression(solver='liblinear', max_iter=1000, class_weight='balanced')
-            elif n_samples < 10000:
+            elif n_samples < 1000:
                 logger.info("Selecting Random Forest for robust small-scale learning.")
                 return RandomForestClassifier(n_jobs=-1, random_state=42, class_weight='balanced')
             else:
-                logger.info("Selecting LightGBM for performant large-scale learning.")
-                return LGBMClassifier(n_jobs=-1, random_state=42, verbose=-1, class_weight='balanced')
+                logger.info("Selecting VotingClassifier (RF + LGBM) for performant learning.")
+                return VotingClassifier([
+                    ('rf', RandomForestClassifier(n_estimators=100, n_jobs=-1, random_state=42, class_weight='balanced')),
+                    ('lgbm', LGBMClassifier(n_estimators=100, n_jobs=-1, random_state=42, verbose=-1, class_weight='balanced'))
+                ], voting='soft')
 
     @staticmethod
     def create_unified_pipeline(preprocessor: Any, model: Any) -> Pipeline:
@@ -42,6 +50,14 @@ class ModelSelectionEngine:
     @staticmethod
     def get_param_grid(model: Any) -> Dict[str, Any]:
         """Returns search space for the selected model."""
+        from sklearn.ensemble import VotingClassifier, VotingRegressor
+        
+        if isinstance(model, (VotingClassifier, VotingRegressor)):
+            return {
+                'model__rf__n_estimators': [50, 100],
+                'model__lgbm__learning_rate': [0.05, 0.1]
+            }
+        
         if isinstance(model, LogisticRegression):
             return {'model__C': [0.1, 1.0, 10.0]}
         if isinstance(model, (RandomForestClassifier, RandomForestRegressor)):
