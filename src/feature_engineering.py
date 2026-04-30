@@ -28,7 +28,16 @@ class FeatureEngineeringPipeline:
         
         # 1. Numerical Pipeline
         if feature_layout.get("numerical"):
+            from sklearn.preprocessing import PolynomialFeatures
             num_steps = [('imputer', SimpleImputer(strategy='median'))]
+            
+            # Feature Synthesis: Automated interaction discovery
+            # (degree=2, interaction_only=True helps find non-linear relationships between features)
+            # We limit this to datasets where it won't explode feature count too much
+            if len(feature_layout["numerical"]) >= 2 and len(feature_layout["numerical"]) <= 15:
+                logger.info("Enabling Feature Synthesis (Interactions) for numerical columns.")
+                num_steps.append(('synth', PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)))
+            
             if not is_tree_model:
                 num_steps.append(('scaler', RobustScaler()))
             transformers.append(('num', Pipeline(num_steps), feature_layout["numerical"]))
