@@ -4,7 +4,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report, roc_auc_score, f1_score, precision_score, recall_score
 import shap
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List
 from src.monitoring.logger import get_logger
 
 logger = get_logger(__name__)
