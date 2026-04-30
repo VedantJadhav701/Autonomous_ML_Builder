@@ -440,6 +440,25 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
             </Panel>
           </div>
 
+          {/* ── Diagnostic Report Row ── */}
+          {results.suggestions && results.suggestions.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <Panel 
+                title="AI Diagnostic Report" 
+                subtitle="The automated engine has identified potential bottlenecks in your dataset."
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {results.suggestions.map((s: string, i: number) => (
+                    <div key={i} style={{ display: "flex", gap: 14, padding: "16px 20px", backgroundColor: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.15)", borderRadius: 12, alignItems: "flex-start" }}>
+                      <AlertTriangle style={{ width: 20, height: 20, color: C.yellow, flexShrink: 0, marginTop: 2 }} />
+                      <p style={{ margin: 0, fontSize: 13, color: "#fff", lineHeight: 1.6, fontWeight: 500 }}>{s}</p>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+          )}
+
           {/* ── Charts Row ── */}
           {results.plots && (
             <div style={{ marginTop: 20 }}>

@@ -244,6 +244,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
                 "n_samples": n_samples,
                 "n_features": n_features,
                 "aggressive": aggressive,
+                "suggestions": EvaluationEngine.generate_failure_analysis(df_raw, target_col, metrics) if aggressive and ((metrics.get("F1_Score") or 1) < 0.85 and (metrics.get("R2_Score") or 1) < 0.85) else [],
             },
         })
 

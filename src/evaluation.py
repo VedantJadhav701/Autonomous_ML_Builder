@@ -136,3 +136,34 @@ class EvaluationEngine:
             logger.error(f"SHAP Explainer Generation Failed: {str(e)}")
             return None
 
+    @staticmethod
+    def generate_failure_analysis(df: pd.DataFrame, target_col: str, metrics: Dict[str, Any]) -> List[str]:
+        """Provides human-readable suggestions when accuracy is low despite ensembling."""
+        suggestions = []
+        n_rows = len(df)
+        n_cols = len(df.columns)
+        
+        # 1. Data Volume
+        if n_rows < 500:
+            suggestions.append("Insufficient Data: Your dataset has fewer than 500 rows. Modern ML algorithms (XGBoost/LGBM) typically require 1,000+ samples to generalize well.")
+            
+        # 2. Feature-to-Sample Ratio
+        if n_cols > (n_rows / 10):
+            suggestions.append("Curse of Dimensionality: You have too many features relative to your sample size. Try removing irrelevant columns to reduce noise.")
+
+        # 3. Missing Data
+        missing_pct = df.isnull().mean().max() * 100
+        if missing_pct > 30:
+            suggestions.append(f"High Data Sparsity: Some columns have >{missing_pct:.1f}% missing values. This 'gap' in information makes it hard for the model to find patterns.")
+
+        # 4. Class Imbalance (Classification)
+        if metrics.get("F1_Score") is not None:
+            counts = df[target_col].value_counts(normalize=True)
+            if counts.max() > 0.9:
+                suggestions.append(f"Extreme Class Imbalance: One class represents {counts.max()*100:.1f}% of your data. The model may be simply 'guessing' the majority class.")
+
+        # 5. Generic Signal check
+        if len(suggestions) == 0:
+            suggestions.append("Weak Predictive Signal: The current features might not contain enough 'signal' to predict the target. Consider collecting more diverse data points.")
+
+        return suggestions
