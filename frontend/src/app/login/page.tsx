@@ -37,9 +37,11 @@ export default function LoginPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-md space-y-8">
           <div className="flex flex-col items-center text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-2xl font-black shadow-2xl shadow-blue-500/20">
-              A
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="AutoStack Logo" 
+              className="w-14 h-14 object-contain" 
+            />
             <div className="space-y-1">
               <h1 className="text-3xl font-black tracking-tight italic">AutoStack</h1>
               <p className="text-zinc-500 font-medium">The Zero-Config ML Engine</p>
