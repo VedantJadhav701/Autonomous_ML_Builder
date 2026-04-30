@@ -72,8 +72,12 @@ export default function AppDashboard() {
           <ModeBtn active={mode === "infer"} onClick={() => setMode("infer")} icon="⚡" label="Run Inference" />
         </div>
 
-        {mode === "train" && <TrainMode alerts={alerts} onSwitchToInfer={() => setMode("infer")} />}
-        {mode === "infer" && <InferMode key="infer" alerts={alerts} onSwitchToTrain={() => setMode("train")} />}
+        <div style={{ display: mode === "train" ? "block" : "none" }}>
+          <TrainMode alerts={alerts} onSwitchToInfer={() => setMode("infer")} />
+        </div>
+        <div style={{ display: mode === "infer" ? "block" : "none" }}>
+          <InferMode alerts={alerts} onSwitchToTrain={() => setMode("train")} isActive={mode === "infer"} />
+        </div>
       </div>
     </div>
   );
@@ -407,6 +411,7 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
 
   // Fetch on mount AND set up a short re-poll until model is available
   useEffect(() => {
+    if (!isActive) return;
     fetchMetadata();
     // If no metadata yet, retry every 2s for up to 20s
     let retries = 0;
@@ -431,7 +436,7 @@ function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain
         .catch(() => {});
     }, 2000);
     return () => clearInterval(iv);
-  }, [fetchMetadata]);
+  }, [fetchMetadata, isActive]);
 
   const handlePredict = async () => {
     setLoading(true); setPrediction(null); setShap(null);
