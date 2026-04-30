@@ -207,7 +207,7 @@ export default function VisualizePage() {
           
           <div className="flex flex-wrap items-center gap-4">
              <button 
-               onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/download-model/${jobId}`, "_blank")}
+               onClick={() => window.open(`https://vedantjadhav701-autostack-engine.hf.space/download-model/${jobId}`, "_blank")}
                className="h-12 px-6 bg-blue-600 text-white rounded-xl font-black italic flex items-center gap-3 hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 active:scale-95"
              >
                <Download className="w-4 h-4" />
@@ -215,7 +215,7 @@ export default function VisualizePage() {
              </button>
              
              <button 
-               onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/download-clean-data/${jobId}`, "_blank")}
+               onClick={() => window.open(`https://vedantjadhav701-autostack-engine.hf.space/download-clean-data/${jobId}`, "_blank")}
                className="h-12 px-6 bg-white/[0.05] text-white rounded-xl font-black italic flex items-center gap-3 border border-white/10 hover:bg-white/[0.1] transition-all active:scale-95"
              >
                <FileJson className="w-4 h-4" />
