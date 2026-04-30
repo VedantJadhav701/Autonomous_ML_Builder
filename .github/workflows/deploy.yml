@@ -20,6 +20,8 @@ jobs:
         run: |
           git config --global user.email "bot@autostack.ai"
           git config --global user.name "AutoStack Bot"
-          git rm -rf frontend || true
-          git commit -m "Internal: Prepare backend for HF deployment (exclude frontend)" || true
-          git push --force https://VedantJadhav701:$HF_TOKEN@huggingface.co/spaces/VedantJadhav701/autostack-engine main
+          rm -rf frontend
+          git checkout --orphan deploy-branch
+          git add .
+          git commit -m "Internal: Fresh backend deployment (exclude frontend/history)"
+          git push --force https://VedantJadhav701:$HF_TOKEN@huggingface.co/spaces/VedantJadhav701/autostack-engine deploy-branch:main
