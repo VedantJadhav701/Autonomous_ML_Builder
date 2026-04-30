@@ -8,7 +8,7 @@ import {
   ScatterChart, Scatter, CartesianGrid, ZAxis
 } from "recharts";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://vedantjadhav701-autostack-engine.hf.space";
 
 // ── Shared Sub-components (Duplicated for standalone use) ──
 
@@ -105,7 +105,7 @@ export default function PublicReportPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-12 border-b border-white/5">
           <div className="flex items-center gap-4">
-             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-xl font-black italic shadow-xl shadow-blue-500/20">A</div>
+             <img src="/logo.png" alt="AutoStack" className="w-12 h-12 object-contain" />
              <div className="space-y-1">
                 <h1 className="text-3xl font-black italic tracking-tight uppercase">Public Model Audit</h1>
                 <p className="text-zinc-500 text-sm font-medium italic uppercase tracking-widest">Job ID: {jobId}</p>
