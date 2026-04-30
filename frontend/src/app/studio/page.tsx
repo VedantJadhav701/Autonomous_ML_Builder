@@ -58,7 +58,8 @@ export default function StudioDashboard() {
             <button className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">View All</button>
           </div>
           
-          <div className="overflow-hidden border border-white/5 rounded-3xl bg-black/20">
+          <div className="overflow-x-auto border border-white/5 rounded-3xl bg-black/20">
+            <div className="min-w-[600px]">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-white/[0.02] border-b border-white/5">
@@ -91,6 +92,7 @@ export default function StudioDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
