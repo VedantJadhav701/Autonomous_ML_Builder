@@ -211,7 +211,11 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
 
     try {
       const res = await fetch(`${API_BASE}/train`, { method: "POST", body: form });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Failed to start training."); }
+      if (!res.ok) { 
+        const e = await res.json(); 
+        const msg = typeof e.detail === 'string' ? e.detail : JSON.stringify(e.detail);
+        throw new Error(msg || "Failed to start training."); 
+      }
       const { job_id } = await res.json();
       setJobId(job_id);
 

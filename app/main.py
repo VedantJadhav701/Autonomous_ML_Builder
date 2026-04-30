@@ -261,7 +261,7 @@ async def start_training(
     file: UploadFile = File(...),
     target_column: str = Form(...),
     task_type: str = Form("auto"),
-    aggressive: bool = Form(False),
+    aggressive: str = Form("false"),
 ):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
@@ -272,9 +272,10 @@ async def start_training(
     job_id = str(uuid.uuid4())
     JOBS[job_id] = {"stage": "Queued", "step": 0, "progress": 0,
                     "status": "queued", "result": None, "error": None}
+    is_aggressive = aggressive.lower() == "true"
     thread = threading.Thread(
         target=_run_training,
-        args=(job_id, csv_bytes, target_column, task_type, aggressive),
+        args=(job_id, csv_bytes, target_column, task_type, is_aggressive),
         daemon=True,
     )
     thread.start()
