@@ -17,4 +17,9 @@ jobs:
       - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://VedantJadhav701:$HF_TOKEN@huggingface.co/spaces/VedantJadhav701/autostack-engine main
+        run: |
+          git config --global user.email "bot@autostack.ai"
+          git config --global user.name "AutoStack Bot"
+          git rm -rf frontend || true
+          git commit -m "Internal: Prepare backend for HF deployment (exclude frontend)" || true
+          git push --force https://VedantJadhav701:$HF_TOKEN@huggingface.co/spaces/VedantJadhav701/autostack-engine main
