@@ -401,3 +401,32 @@ async def health_check():
         "model_name": MODEL_METADATA.get("model_name") if MODEL_METADATA else None,
         "task_type": MODEL_METADATA.get("task_type") if MODEL_METADATA else None,
     }
+
+
+@app.get("/download-model")
+async def download_model(format: str = "joblib"):
+    """Download the trained pipeline as .joblib or .pkl file."""
+    import tempfile, shutil
+    from fastapi.responses import FileResponse
+
+    if PIPELINE is None:
+        raise HTTPException(status_code=503, detail="No model trained yet. Train a model first.")
+
+    allowed = {"joblib", "pkl"}
+    if format not in allowed:
+        raise HTTPException(status_code=400, detail=f"Format must be one of: {allowed}")
+
+    model_name = (MODEL_METADATA or {}).get("model_name", "model")
+    task_type  = (MODEL_METADATA or {}).get("task_type", "model")
+    filename   = f"autonomous_ml_{model_name}_{task_type}.{format}"
+
+    # Write to a temp file so FileResponse can serve it
+    tmp_path = os.path.join(tempfile.gettempdir(), filename)
+    joblib.dump(PIPELINE, tmp_path)
+
+    return FileResponse(
+        path=tmp_path,
+        media_type="application/octet-stream",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

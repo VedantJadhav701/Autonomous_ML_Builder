@@ -317,16 +317,22 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
       {/* ── STEP: Results ── */}
       {step === "results" && results && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Success banner + CTA */}
-          <div style={{ padding: "16px 24px", borderRadius: 14, backgroundColor: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          {/* Success banner + CTAs */}
+          <div style={{ padding: "16px 24px", borderRadius: 14, backgroundColor: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <CheckCircle2 style={{ width: 20, height: 20, color: C.green }} />
               <div>
                 <p style={{ margin: 0, fontWeight: 700, color: C.green }}>Training Complete</p>
-                <p style={{ margin: 0, fontSize: 12, color: C.muted }}>Model is live and ready for inference.</p>
+                <p style={{ margin: 0, fontSize: 12, color: C.muted }}>
+                  {results.model_name} · {results.task_type} · {results.n_features} features · {results.training_time_sec}s
+                </p>
               </div>
             </div>
-            <PrimaryBtn label="⚡ Switch to Inference →" onClick={onSwitchToInfer} />
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <DownloadBtn format="joblib" modelName={results.model_name} taskType={results.task_type} />
+              <DownloadBtn format="pkl" modelName={results.model_name} taskType={results.task_type} />
+              <PrimaryBtn label="⚡ Switch to Inference →" onClick={onSwitchToInfer} />
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
@@ -753,7 +759,36 @@ function GhostBtn({ label, onClick, type }: { label: string; onClick?: () => voi
   );
 }
 
+function DownloadBtn({ format, modelName, taskType }: { format: "joblib" | "pkl"; modelName: string; taskType: string }) {
+  const [hov, setHov] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const url = `${API_BASE}/download-model?format=${format}`;
+      const res = await fetch(url);
+      if (!res.ok) { alert("Download failed: " + (await res.text())); return; }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `autonomous_ml_${modelName}_${taskType}.${format}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally { setDownloading(false); }
+  };
+
+  return (
+    <button onClick={handleDownload} disabled={downloading}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{ padding: "10px 16px", backgroundColor: hov ? "rgba(52,211,153,0.1)" : "transparent", border: `1px solid ${hov ? C.green : "rgba(52,211,153,0.3)"}`, borderRadius: 10, color: hov ? C.green : "rgba(52,211,153,0.7)", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6, fontFamily: "monospace" }}>
+      {downloading ? "..." : `⬇ .${format}`}
+    </button>
+  );
+}
+
 function ActionBtn({ onClick, label }: { onClick: () => void; label: string }) {
+
   const [hov, setHov] = useState(false);
   return (
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}

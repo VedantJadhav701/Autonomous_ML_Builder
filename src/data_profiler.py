@@ -39,22 +39,36 @@ class DataProfiler:
             if pd.api.types.is_numeric_dtype(df[col]):
                 filled = df[col].dropna()
                 if len(filled) > 0:
-                    # Near-constant columns
+                    # Near-constant columns (zero useful information)
                     if filled.std() < MIN_VARIANCE_THRESHOLD:
                         logger.warning(f"Dropping '{col}': near-constant (std≈0).")
                         to_drop.append(col)
                         continue
-                    # Likely ID column: all-unique integers
-                    unique_ratio = df[col].nunique() / max(n, 1)
-                    if unique_ratio > 0.95 and pd.api.types.is_integer_dtype(df[col]):
-                        logger.warning(f"Dropping '{col}': likely ID column (unique={unique_ratio:.1%}).")
-                        to_drop.append(col)
-                        continue
+
+                    # True ID columns: sequential integers (1,2,3...) OR name says "id/index"
+                    # NOT high-cardinality real features like sqft, price, score
+                    is_id_named = any(kw in col.lower() for kw in ["_id", "id_", " id", "index", "rownum", "row_num"])
+                    if pd.api.types.is_integer_dtype(df[col]) and not is_id_named:
+                        col_min, col_max = int(filled.min()), int(filled.max())
+                        unique_count = filled.nunique()
+                        # Sequential IDs have max-min+1 ≈ count (range matches count)
+                        is_sequential = (col_max - col_min + 1) <= n * 1.05 and unique_count >= n * 0.95
+                        if is_sequential:
+                            logger.warning(f"Dropping '{col}': sequential integer ID column (range={col_min}-{col_max}).")
+                            to_drop.append(col)
+                            continue
+                    elif is_id_named:
+                        unique_ratio = filled.nunique() / max(n, 1)
+                        if unique_ratio > 0.95:
+                            logger.warning(f"Dropping '{col}': ID-named column with unique={unique_ratio:.1%}.")
+                            to_drop.append(col)
+                            continue
             else:
-                # Object columns that are unique per row → IDs
+                # Object/string columns where every row is unique → IDs or free text
                 unique_ratio = df[col].nunique() / max(n, 1)
-                if unique_ratio > 0.95:
-                    logger.warning(f"Dropping '{col}': unique string column (unique={unique_ratio:.1%}).")
+                is_id_named = any(kw in col.lower() for kw in ["_id", "id_", " id", "index", "name", "uuid"])
+                if unique_ratio > 0.95 and is_id_named:
+                    logger.warning(f"Dropping '{col}': unique string ID column (unique={unique_ratio:.1%}).")
                     to_drop.append(col)
                     continue
 
@@ -62,6 +76,7 @@ class DataProfiler:
             df = df.drop(columns=to_drop)
             logger.info(f"Dropped {len(to_drop)} low-quality columns: {to_drop}")
         return df
+
 
     @staticmethod
     def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
