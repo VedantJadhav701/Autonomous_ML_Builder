@@ -23,13 +23,13 @@ class ModelSelectionEngine:
         else:
             if is_sparse and n_samples < 5000:
                 logger.info("Selecting Logistic Regression for sparse data.")
-                return LogisticRegression(solver='liblinear', max_iter=1000)
+                return LogisticRegression(solver='liblinear', max_iter=1000, class_weight='balanced')
             elif n_samples < 10000:
                 logger.info("Selecting Random Forest for robust small-scale learning.")
-                return RandomForestClassifier(n_jobs=-1, random_state=42)
+                return RandomForestClassifier(n_jobs=-1, random_state=42, class_weight='balanced')
             else:
                 logger.info("Selecting LightGBM for performant large-scale learning.")
-                return LGBMClassifier(n_jobs=-1, random_state=42, verbose=-1)
+                return LGBMClassifier(n_jobs=-1, random_state=42, verbose=-1, class_weight='balanced')
 
     @staticmethod
     def create_unified_pipeline(preprocessor: Any, model: Any) -> Pipeline:

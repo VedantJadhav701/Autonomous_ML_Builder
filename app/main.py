@@ -147,6 +147,14 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         from src.tuner import HyperparameterTuner
         from sklearn.model_selection import train_test_split
 
+        # Encode string targets for classification to prevent LightGBM/RF crashes
+        target_mapping = None
+        if not is_regression and (y.dtype == object or str(y.dtype) == 'category' or y.dtype == str):
+            from sklearn.preprocessing import LabelEncoder
+            le = LabelEncoder()
+            y = pd.Series(le.fit_transform(y), index=y.index)
+            target_mapping = {str(i): str(c) for i, c in enumerate(le.classes_)}
+
         # Never stratify for regression or when target has many unique values
         use_stratify = (not is_regression) and (y.nunique() <= max(50, 0.1 * n_samples))
         stratify_arg = y if use_stratify else None
@@ -205,6 +213,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
             "model_name": model_name,
             "n_samples": n_samples,
             "n_features": n_features,
+            "target_mapping": target_mapping,
         }
         ModelArtifactTracker.save_pipeline(tuned_pipeline, explainer, metadata=metadata)
 
@@ -320,6 +329,11 @@ async def predict(request: PredictionRequest):
             pass  # drift detection is non-fatal
         preds = PIPELINE.predict(df)
         preds_list = preds.tolist() if hasattr(preds, "tolist") else list(preds)
+        
+        if MODEL_METADATA and MODEL_METADATA.get("target_mapping"):
+            mapping = MODEL_METADATA["target_mapping"]
+            preds_list = [mapping.get(str(p), p) for p in preds_list]
+
         try:
             PerformanceTracker.stage_predictions(request_ids, preds_list)
         except Exception:
