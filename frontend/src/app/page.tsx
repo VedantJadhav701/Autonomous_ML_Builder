@@ -89,10 +89,14 @@ export default function LandingPage() {
               >
                 Launch Console <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <div className="flex items-center gap-4 px-6 h-16 bg-white/[0.02] border border-white/5 rounded-[24px] text-zinc-400 text-[10px] font-black uppercase tracking-widest">
-                 <Shield className="w-4 h-4 text-emerald-500" />
-                 No Credit Card Required
-              </div>
+              <a 
+                href="https://calendly.com/vedantjadhav1414/30min" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-10 h-16 bg-white/[0.03] border border-white/10 text-white rounded-[24px] text-lg font-black italic flex items-center justify-center gap-3 hover:bg-white/[0.06] transition-all hover:-translate-y-1"
+              >
+                Book a Demo
+              </a>
             </div>
           </div>
 
@@ -232,9 +236,9 @@ export default function LandingPage() {
           <div className="space-y-6 text-right">
             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Social</h4>
             <ul className="space-y-3 text-xs font-bold text-zinc-600 uppercase tracking-widest">
+               <li><a href="https://linkedin.com/in/vedantjadhav-ai" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">LinkedIn</a></li>
+               <li><a href="https://github.com/VedantJadhav701/Autonomous_ML_Builder" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a></li>
                <li><a href="#" className="hover:text-white transition-colors">Twitter</a></li>
-               <li><a href="#" className="hover:text-white transition-colors">GitHub</a></li>
-               <li><a href="#" className="hover:text-white transition-colors">LinkedIn</a></li>
             </ul>
           </div>
         </div>
