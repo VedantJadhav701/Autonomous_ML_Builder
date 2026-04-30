@@ -33,13 +33,13 @@ export default function LandingPage() {
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true },
     transition: { duration: 0.8, ease: "easeOut" }
-  };
+  } as const;
 
   const staggerContainer = {
     initial: {},
     whileInView: { transition: { staggerChildren: 0.15 } },
     viewport: { once: true }
-  };
+  } as const;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-blue-500/30 overflow-x-hidden relative">
