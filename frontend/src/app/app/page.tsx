@@ -379,7 +379,7 @@ function TrainMode({ alerts, onSwitchToInfer }: { alerts: any[]; onSwitchToInfer
 type FeatureSpec = { type: "number" | "text"; values: string[] | null; sample: any };
 type Metadata    = { available: boolean; features?: Record<string, FeatureSpec>; task_type?: string; model_name?: string; target_col?: string };
 
-function InferMode({ alerts, onSwitchToTrain }: { alerts: any[]; onSwitchToTrain: () => void }) {
+function InferMode({ alerts, onSwitchToTrain, isActive }: { alerts: any[]; onSwitchToTrain: () => void; isActive: boolean }) {
   const [metadata, setMetadata]       = useState<Metadata | null>(null);
   const [formData, setFormData]       = useState<Record<string, any>>({});
   const [prediction, setPrediction]   = useState<any>(null);
