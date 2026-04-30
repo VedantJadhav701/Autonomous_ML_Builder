@@ -96,9 +96,19 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
         raw_target = df_raw[target_col].dropna()
         n_unique_raw = int(raw_target.nunique())
         n_total_raw  = len(raw_target)
+        
         is_float_target = pd.api.types.is_float_dtype(raw_target)
-        is_continuous = is_float_target and n_unique_raw > max(20, 0.05 * n_total_raw)
-        is_str_target = raw_target.dtype == object
+        is_int_target = pd.api.types.is_integer_dtype(raw_target)
+        is_str_target = raw_target.dtype == object or str(raw_target.dtype) == 'category'
+
+        # If it's float and has several unique values, it's regression
+        if is_float_target:
+            is_continuous = n_unique_raw > 2 
+        # If it's int and has high cardinality, it's likely regression (e.g. Price, Age)
+        elif is_int_target:
+            is_continuous = n_unique_raw > 20 or (n_unique_raw > 10 and n_unique_raw > 0.05 * n_total_raw)
+        else:
+            is_continuous = False
 
         if task_type == "auto":
             is_regression = is_continuous and not is_str_target
@@ -109,7 +119,7 @@ def _run_training(job_id: str, csv_bytes: bytes, target_col: str, task_type: str
 
         logger.info(
             f"Task type → {'REGRESSION' if is_regression else 'CLASSIFICATION'} "
-            f"(dtype={raw_target.dtype}, unique={n_unique_raw}/{n_total_raw})"
+            f"(dtype={raw_target.dtype}, unique={n_unique_raw}/{n_total_raw}, task_type_hint={task_type})"
         )
 
         # Build feature schema from raw data (for dynamic frontend form)
