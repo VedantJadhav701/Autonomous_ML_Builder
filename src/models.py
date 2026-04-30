@@ -102,12 +102,19 @@ class ModelSelectionEngine:
         from sklearn.ensemble import VotingClassifier, VotingRegressor, StackingClassifier, StackingRegressor
         
         if isinstance(model, (VotingClassifier, VotingRegressor, StackingClassifier, StackingRegressor)):
-            return {
-                'model__rf__n_estimators': [50, 100],
-                'model__lgbm__learning_rate': [0.05, 0.1],
-                'model__xgb__max_depth': [3, 6],
-                'model__cat__depth': [4, 6]
-            }
+            grid = {}
+            # Standard ensembles have (name, estimator) pairs in .estimators
+            est_names = [name for name, _ in model.estimators]
+            
+            if 'rf' in est_names:
+                grid['model__rf__n_estimators'] = [50, 100]
+            if 'lgbm' in est_names:
+                grid['model__lgbm__learning_rate'] = [0.05, 0.1]
+            if 'xgb' in est_names:
+                grid['model__xgb__max_depth'] = [3, 6]
+            if 'cat' in est_names:
+                grid['model__cat__depth'] = [4, 6]
+            return grid
         
         if isinstance(model, LogisticRegression):
             return {'model__C': [0.1, 1.0, 10.0]}
